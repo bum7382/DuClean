@@ -1,7 +1,21 @@
-import 'package:duclean/setting.dart';
+import 'package:duclean/Main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
 import 'dart:math';
+
+/*
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 가로모드만 허용
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
+  runApp(const MyApp());
+}*/
 
 void main() {
   runApp(const MyApp());
@@ -17,17 +31,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'DuClean',
-      theme: ThemeData(
-        fontFamily: 'Pretendard',
-      ),
-      home: const MainPage(),
+      theme: ThemeData(fontFamily: 'Pretendard'),
+      home: const IntroPage(),
     );
   }
 }
 
 // 메인 화면
-class MainPage extends StatelessWidget {
-  const MainPage({super.key});
+class IntroPage extends StatelessWidget {
+  const IntroPage({super.key});
 
   // 페이지 이동 함수
   void navigateToPage(BuildContext context, String pageLabel) {
@@ -36,21 +48,21 @@ class MainPage extends StatelessWidget {
     switch (pageLabel) {
       case 'FAN TEST':
         //page = const FanTestPage();
-        page = const SettingPage();
+        page = const MainPage();
         break;
       case 'SOL TEST':
         //page = const SolTestPage();
-        page = const SettingPage();
+        page = const MainPage();
         break;
       case 'SETTING':
-        page = const SettingPage();
+        page = const MainPage();
         break;
       case 'STATE':
         //page = const StatePage();
-        page = const SettingPage();
+        page = const MainPage();
         break;
       case 'INFO':
-        page = const SettingPage();
+        page = const MainPage();
         //page = const InfoPage();
         break;
       default:
@@ -108,7 +120,7 @@ class MainPage extends StatelessWidget {
         body: Align(
           alignment: Alignment.topCenter,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(30.0), // 화면 전체에 여백을 줍니다.
+            padding: const EdgeInsets.all(30.0),
             child: Wrap(
               spacing: 30,      // 버튼 사이의 가로 간격
               runSpacing: 30,   // 버튼 사이의 세로 간격
@@ -123,7 +135,7 @@ class MainPage extends StatelessWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const SettingPage()),
+                        MaterialPageRoute(builder: (context) => const MainPage()),
                       );
                     },
                     style: ElevatedButton.styleFrom(
