@@ -81,6 +81,9 @@ flutter:
   # list giving the asset and other descriptors for the font. For
   # example:
   fonts:
+    - family: Digital
+      fonts:
+        - asset: assets/fonts/LAB-Digital.ttf
     - family: Pretendard
       fonts:
         - asset: assets/fonts/Pretendard-Black.ttf

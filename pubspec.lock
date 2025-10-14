@@ -5,10 +5,10 @@ packages:
     dependency: "direct main"
     description:
       name: animations
-      sha256: d3d6dcfb218225bbe68e87ccf6378bbb2e32a94900722c5f81611dad089911cb
+      sha256: a8031b276f0a7986ac907195f10ca7cd04ecf2a8a566bd6dbe03018a9b02b427
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.11"
+    version: "2.1.0"
   args:
     dependency: transitive
     description:
@@ -268,18 +268,18 @@ packages:
     dependency: transitive
     description:
       name: syncfusion_flutter_core
-      sha256: "7c700778e2b390412f3a364aa38fbc010570ade19684b9d6613d17e7ca284898"
+      sha256: "3135dc6b427686cdda1546bdeab3a4a45372f5bb3d95369e007776b605f863ac"
       url: "https://pub.dev"
     source: hosted
-    version: "31.1.21"
+    version: "31.1.23"
   syncfusion_flutter_gauges:
     dependency: "direct main"
     description:
       name: syncfusion_flutter_gauges
-      sha256: fefe353187aa2a56e2714e5029af6a4df92b90666cb30d02f9febe943596a6ee
+      sha256: d198156b0248eb5ccf9ddc9d763953193156dadd7862d3147ab290d3222c3a6f
       url: "https://pub.dev"
     source: hosted
-    version: "31.1.21"
+    version: "31.1.23"
   synchronized:
     dependency: transitive
     description:
