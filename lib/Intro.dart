@@ -1,4 +1,5 @@
 import 'package:duclean/Main.dart';
+import 'package:duclean/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
@@ -32,6 +33,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'DuClean',
       theme: ThemeData(fontFamily: 'Pretendard'),
+      routes: Routes.routes,
       home: const IntroPage(),
     );
   }
@@ -41,7 +43,8 @@ class MyApp extends StatelessWidget {
 class IntroPage extends StatelessWidget {
   const IntroPage({super.key});
 
-  // 페이지 이동 함수
+  // 페이지 이동 함수 - 현재 사용 안 함
+  /*
   void navigateToPage(BuildContext context, String pageLabel) {
     Widget page;  // 이동할 페이지
 
@@ -74,21 +77,15 @@ class IntroPage extends StatelessWidget {
     }
     Navigator.push(context, MaterialPageRoute(builder: (context) => page));
   }
+  */
+
   @override
   Widget build(BuildContext context) {
 
     // 버전
-    var version = 'V 1.0.0';
+    var version = 'V 1.0.1';
     // 공식 색
     var duBlue = Color(0xff004d94);
-    // 버튼 이미지
-    final List<Map<String, String>> buttonData = [
-      {'icon': 'assets/images/fan.svg', 'label': 'FAN TEST'},
-      {'icon': 'assets/images/valve.svg', 'label': 'SOL TEST'},
-      {'icon': 'assets/images/handyman.svg', 'label': 'SETTING'},
-      {'icon': 'assets/images/state.svg', 'label': 'STATE'},
-      {'icon': 'assets/images/chat_info.svg', 'label': 'INFO'},
-    ];
 
     // 화면 크기
     Size screenSize = MediaQuery.of(context).size;
@@ -96,8 +93,8 @@ class IntroPage extends StatelessWidget {
     var screenHeight = screenSize.height;
 
     // 버튼 크기
-    final double buttonWidth = (screenWidth * 0.4) > 350 ? 350 : (screenWidth * 0.4);
-    final double buttonHeight = (screenHeight * 0.3) > 262.5 ? 262.5 : (screenHeight * 0.3);
+    final double buttonWidth = screenWidth * 0.6;
+    final double buttonHeight = screenHeight * 0.07;
 
     return Scaffold(
         backgroundColor: Color(0xfff6f6f6),
@@ -119,73 +116,38 @@ class IntroPage extends StatelessWidget {
         // 몸체
         body: Align(
           alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(30.0),
-            child: Wrap(
-              spacing: 30,      // 버튼 사이의 가로 간격
-              runSpacing: 30,   // 버튼 사이의 세로 간격
-              alignment: WrapAlignment.center, // 가운데 정렬
-
+          child: Center(
+            child: Column(
+              spacing: 100,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
-                // 1. START 버튼
+                SizedBox(height: 100,),
+                Text("Your Standard,\nDUCLEAN",style:
+                  TextStyle(fontSize: 30, fontWeight: FontWeight.w700,color: duBlue),
+                            textAlign: TextAlign.center,),
+                // 연결 목록 버튼
                 SizedBox(
                   width: buttonWidth,
                   height: buttonHeight,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const MainPage()),
-                      );
+                      Navigator.of(context).pushNamed(Routes.mainPage);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: duBlue,
                       foregroundColor: Colors.white,
                       textStyle: TextStyle(
-                        fontSize: 30,
+                        fontSize: 20,
                         fontWeight: FontWeight.w600
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: Text('START'),
+                    child: Text('연결 목록'),
                   ),
                 ),
 
-                // 2. 나머지 아이콘 버튼들
-                ...buttonData.map((data) {
-                  final label = data['label']!;
-                  return SizedBox(
-                    width: buttonWidth,
-                    height: buttonHeight,
-                    child: ElevatedButton(
-                      onPressed: () => navigateToPage(context, label),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: duBlue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        textStyle: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SvgPicture.asset(
-                            data['icon']!,
-                            width: 55,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(data['label']!),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
               ],
             ),
           ),

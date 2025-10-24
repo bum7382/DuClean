@@ -1,10 +1,15 @@
+import 'package:duclean/Alarm.dart';
+import '/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modbus_client/modbus_client.dart';
 import 'package:modbus_client_tcp/modbus_client_tcp.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 import 'package:syncfusion_flutter_gauges/gauges.dart';
+
+late SharedPreferences _prefs;
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -12,6 +17,8 @@ class MainPage extends StatefulWidget {
   @override
   State<MainPage> createState() => _MainPageState();
 }
+
+
 
 class _MainPageState extends State<MainPage> {
   // 통신 설정
@@ -55,22 +62,20 @@ class _MainPageState extends State<MainPage> {
   var alarmBuzzerFlag; // 알람부저플래그
   var alarmCode; // 알람발생코드
 
-  var alarmHistory1;  // 알람이력 1
-  var alarmHistory2;  // 알람이력 2
-  var alarmHistory3;  // 알람이력 3
-  var alarmHistory4;  // 알람이력 4
-  var alarmHistory5;  // 알람이력 5
-  var alarmHistory6;  // 알람이력 6
-  var alarmHistory7;  // 알람이력 7
-  var alarmHistory8;  // 알람이력 8
-  var alarmHistory9;  // 알람이력 9
-  var alarmHistory10;  // 알람이력 10
-  var alarmHistory11;  // 알람이력 11
-  var alarmHistory12;  // 알람이력 12
+  var preAlarm = -1; // 이전 알람
+  var currentAlarm = 0;  // 현재 알람
+  bool isAlarmChanged = false; // 알람 변경 여부
+  var alarmDate; // 알람 발생 시각
 
   var alarmCount;  // 발생알람개수
   var diStatusValue; // DI 상태값
   var firmwareVersion;  // 펌웨어 버전
+
+  final runModeList = ['판넬', '연동', '원격', 'RS485'];  // 동작 설정
+  var runMode = '판넬';
+
+  static const _kAlarmCodeKey = 'alarm_current_code';
+  static const _kAlarmDateKey = 'alarm_current_date_ms';
 
   @override
   // 타이머 시작
@@ -84,7 +89,23 @@ class _MainPageState extends State<MainPage> {
             address: i,
           )),
     );
-    _connectAndStartPolling(); // 소켓 연결 + 1초마다 read
+    _initPrefsAndStart();
+  }
+
+  Future<void> _initPrefsAndStart() async {
+    _prefs = await SharedPreferences.getInstance();
+    await _connectAndStartPolling();
+    await _readOnEnter();
+  }
+
+  // 첫 진입 시 R/W 레지스터 값 읽어서 초기화
+  Future<void> _readOnEnter() async {
+    final mode = await readRegister(34);
+    if (mounted) {
+      setState(() {
+        runMode = mode != null? runModeList[mode] : '판넬';
+      });
+    }
   }
 
   // 연결 종료
@@ -116,6 +137,7 @@ class _MainPageState extends State<MainPage> {
         return "알수없음($code)";
     }
   }
+
   // Read Input Register 함수
   Future<void> _connectAndStartPolling() async {
     // 연결
@@ -142,6 +164,22 @@ class _MainPageState extends State<MainPage> {
 
         final runFlag = (_inputs[14] as ModbusUint16Register).value?.toInt() ?? 0;  // 송풍기 운전 상태
 
+        final alarmFlag = (_inputs[24] as ModbusUint16Register).value?.toInt() ?? 0;  // 알람부저 플래그
+        final curAlarm = (_inputs[25] as ModbusUint16Register).value?.toInt() ?? 0;  // 알람 이력
+
+        if (alarmFlag != 0) {
+          if((curAlarm != 0) && (preAlarm != curAlarm)){
+            alarmDate = DateTime.now();
+            await _prefs.setInt(_kAlarmCodeKey, curAlarm);
+            await _prefs.setInt(_kAlarmDateKey, (alarmDate as DateTime).millisecondsSinceEpoch);
+            preAlarm = curAlarm;
+          }
+          else if(curAlarm == 0){
+            preAlarm = curAlarm;
+          }
+        }
+
+
         if (!mounted) return;
 
         setState(() {
@@ -152,6 +190,7 @@ class _MainPageState extends State<MainPage> {
           operationTime = ((opHi & 0xFFFF) << 16) | (opLo & 0xFFFF);
           pulseStatus = pulseStatusLabel(pul);
           motorStatus = (runFlag != 0);
+          currentAlarm = curAlarm;
 
           // 성공 시 백오프 리셋
           _reconnectAttempt = 0;
@@ -209,22 +248,51 @@ class _MainPageState extends State<MainPage> {
     return base.clamp(500, 8000);
   }
 
-  /// Modbus 쓰기 함수 - 수정 필요, 아직 미완성
-  Future<void> writeRegister(int address, int value) async {
-    try {
-      if (!await _ensureConnected()) {
-        throw Exception("Modbus 미연결 상태");
-      }
-      if (_client == null) throw Exception("클라이언트 미연결");
+  /// Modbus 쓰기 함수
+  Future<bool> writeRegister(int address, int value) async {
+    // 연결 보장
+    if (!await _ensureConnected()) {
+      debugPrint("Modbus 쓰기 실패: 연결되지 않음");
+      return false;
+    }
 
+    try {
+      final register = ModbusInt16Register(
+        name: "Holding($address)",
+        type: ModbusElementType.holdingRegister, // FC06: Write Single Holding Register
+        address: address,
+      );
+
+      await _client!.send(register.getWriteRequest(value));
+      _reconnectAttempt = 0;
+      return true;
+    } catch (e) {
+      debugPrint("Modbus 쓰기 에러: $e");
+      return false;
+    }
+  }
+
+  // Modbus 읽기 함수
+  Future<int?> readRegister(int address) async {
+    if (!await _ensureConnected()) {
+      debugPrint("Modbus 읽기 실패: 연결되지 않음");
+      return null;
+    }
+
+    try {
       final register = ModbusInt16Register(
         name: "Holding($address)",
         type: ModbusElementType.holdingRegister, // FC03
         address: address,
       );
-      await _client!.send(register.getWriteRequest(value));
+
+      await _client!.send(register.getReadRequest());
+
+      _reconnectAttempt = 0; // 성공 시 백오프 리셋
+      return register.value?.toInt();
     } catch (e) {
-      debugPrint("Modbus 쓰기 에러: $e");
+      debugPrint("Modbus 읽기 에러: $e");
+      return null;
     }
   }
 
@@ -298,9 +366,14 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     // 버전
-    var version = 'V 1.0.1';
+    var version = 'V 1.0.2';
     // 공식 색
     const Color duBlue = Color(0xff004d94);
+
+    // 화면 크기
+    Size screenSize = MediaQuery.of(context).size;
+    var screenWidth = screenSize.width;
+    var screenHeight = screenSize.height;
 
     // 모터 실행 토글 함수
     Future<void> _toggleRun() async {
@@ -319,15 +392,25 @@ class _MainPageState extends State<MainPage> {
       }
     }
 
+    Future<void> _toggleBuzzer() async {
+      try{
+        if (!mounted) return;
+        await writeRegister(1, 1);
+      }
+      catch(e){
+        debugPrint('쓰기 실패: $e');
+      }
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xfff6f6f6),
+
       appBar: AppBar(
         centerTitle: true,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 상단바 로고 및 버전 표시
             Image.asset('assets/images/logo_white.png', width: 100),
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -335,12 +418,22 @@ class _MainPageState extends State<MainPage> {
                 version,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
               ),
-            )
+            ),
           ],
         ),
+        actions: [
+          IconButton(onPressed: (){
+            Navigator.of(context).pushNamed(Routes.alarmPage,
+                arguments: <String, dynamic>{
+                  'date': alarmDate,
+                  "name" : "AP-500"
+                });
+          }, icon: Icon(Icons.notifications, color: Colors.white,size: 30,)),
+          IconButton(onPressed: (){}, icon: Icon(Icons.menu, color: Colors.white, size: 30)),
+        ],
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         backgroundColor: duBlue,
       ),
@@ -350,11 +443,11 @@ class _MainPageState extends State<MainPage> {
             // 운전 조작 관련 패널
             Container(
               alignment: Alignment.center,
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
+              margin: EdgeInsets.symmetric(horizontal: screenWidth*0.05, vertical: screenWidth*0.1),
               decoration: BoxDecoration(
                 color: motorStatus ? duBlue : Colors.white,
                 border: Border.all(color: duBlue, strokeAlign: BorderSide.strokeAlignOutside, width: 2),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -372,14 +465,33 @@ class _MainPageState extends State<MainPage> {
                       children: [
                         Column(
                           children: [
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             SizedBox(
-                              width: 300,
+                              width: screenWidth * 0.75,
                               child: Row( // 운전시간 및 판넬 모드
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text("운전 시간: $operationTime H", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black),),
-                                  Text("판넬 모드: ", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : duBlue)),
+                                  Text("운전 시간: $operationTime H", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black),),
+                                  DropdownButton(
+                                    value: runMode,
+                                    items: runModeList
+                                        .map((e) => DropdownMenuItem(
+                                          value: e,
+                                          child: Text(e),
+                                    )).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        switch(value){
+                                          case '판넬': writeRegister(34, 0);
+                                          case '연동': writeRegister(34, 1);
+                                          case '원격': writeRegister(34, 2);
+                                          case 'RS485': writeRegister(34, 3);
+                                        }
+                                        runMode = value!;
+
+                                      });
+                                    },
+                                  ),
                                 ],
                               ),
                             ),
@@ -387,75 +499,68 @@ class _MainPageState extends State<MainPage> {
                               spacing: 3,
                               children: [
                                 Container(
-                                  width: 220,
-                                  height: 135,
+                                  width: screenWidth * 0.5,
+                                  height: screenHeight * 0.15,
                                   margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
                                   decoration: BoxDecoration(
                                     border:Border.all(color: motorStatus ? Colors.white : duBlue)
                                   ),
                                   child:
-                                    Row(  // 차압 및 펄스 모드 표시
-                                      children: [
-                                        Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.end,
-                                              children: [
-                                                const SizedBox(width: 130),
-                                                Row(
-                                                  spacing: 5,
-                                                  children: [
-                                                    Icon(Icons.circle,
-                                                        size: 14,
-                                                        color: pulseColor),
-                                                    Text(pulseStatus, style:TextStyle(fontWeight: FontWeight.w600 ,color: motorStatus ? Colors.white : Colors.black)),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.start,
-                                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                                              textBaseline: TextBaseline.alphabetic,
-                                              children: [
-                                                const SizedBox(width: 10),
-                                                Text("$diffPressure", style: TextStyle(fontFamily: "Digital", fontSize: 70, color: motorStatus ? Colors.white : duBlue),),
-                                                Text("mmAq", style: TextStyle(fontSize:25, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : duBlue))
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-
-                                      ],
-                                    ),
+                                  Column(
+                                    spacing: 5,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          Icon(Icons.circle,
+                                              size: 14,
+                                              color: pulseColor),
+                                          SizedBox(width: 5,),
+                                          Text(pulseStatus, style:TextStyle(fontSize: 12, fontWeight: FontWeight.w100 ,color: motorStatus ? Colors.white : Colors.black)),
+                                          SizedBox(width: 10,)
+                                        ],
+                                      ),
+                                      Row(
+                                        spacing: 10,
+                                        mainAxisAlignment: MainAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                                        textBaseline: TextBaseline.alphabetic,
+                                        children: [
+                                          const SizedBox(width: 5),
+                                          Text("$diffPressure", style: TextStyle(fontFamily: "Digital", fontSize: 50, color: motorStatus ? Colors.white : duBlue),),
+                                          Text("mmAq", style: TextStyle(fontSize:14, fontWeight: FontWeight.w500, color: motorStatus ? Colors.white : duBlue))
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 Container(
-                                  width: 100,
-                                  height: 135,
+                                  width: screenWidth * 0.25,
+                                  height: screenHeight * 0.15,
                                   margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
                                   decoration: BoxDecoration(
                                       border:Border.all(color: motorStatus ? Colors.white : duBlue)
                                   ),
                                   child:
                                     Column( // 전류 표시
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                                       children: [
                                         Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
-                                          Text("$power1", style: TextStyle(fontFamily: "Digital", fontSize: 40, color: motorStatus ? Colors.white : duBlue),),
+                                          Text("$power1", style: TextStyle(fontFamily: "Digital", fontSize: 35, color: motorStatus ? Colors.white : duBlue),),
                                           Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : duBlue))
                                         ],
                                       ),
                                         Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
-                                          Text("$power2", style: TextStyle(fontFamily: "Digital", fontSize: 40, color: motorStatus ? Colors.white : duBlue),),
+                                          Text("$power2", style: TextStyle(fontFamily: "Digital", fontSize: 35, color: motorStatus ? Colors.white : duBlue),),
                                           Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : duBlue))
                                         ],
                                       ),
@@ -466,41 +571,62 @@ class _MainPageState extends State<MainPage> {
                             ),
 
                             // 운전 시작 버튼
-                            SizedBox(
-                              width: 250,
-                              height: 50,
-                              child:
-                                ElevatedButton(
-                                  onPressed: _toggleRun,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: motorStatus ? Colors.white : duBlue,
-                                    shadowColor: Colors.black,
-                                    elevation: 2,
-                                    textStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Row(
+                            Row(
+                              spacing: 10,
+                              children: [
+                                SizedBox(
+                                  width: screenWidth * 0.55,
+                                  height: screenHeight * 0.065,
+                                  child:
+                                    ElevatedButton(
+                                      onPressed: _toggleRun,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: motorStatus ? Colors.white : duBlue,
+                                        shadowColor: Colors.black,
+                                        elevation: 2,
+                                        textStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
+                                      ),
+                                      child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(motorStatus ? Icons.stop : Icons.play_arrow,
-                                              size: 24,
-                                              color: motorStatus ? Colors.black : Colors.white),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            motorStatus ? '운전 정지' : '운전 시작',
-                                            style: TextStyle(
-                                              fontSize: 20,
-                                              color: motorStatus ? Colors.black : Colors.white,
-                                            ),
-                                          ),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(motorStatus ? Icons.stop : Icons.play_arrow,
+                                                  size: 24,
+                                                  color: motorStatus ? Colors.black : Colors.white),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                motorStatus ? '운전 정지' : '운전 시작',
+                                                style: TextStyle(
+                                                  fontSize: 20,
+                                                  color: motorStatus ? Colors.black : Colors.white,
+                                                ),
+                                              ),
+                                            ],
+                                          )
                                         ],
-                                      )
-                                    ],
-                                  ),
+                                      ),
+                                    ),
                                 ),
-
+                                // 부저 정지 버튼
+                                Container(
+                                  width: screenWidth * 0.15,
+                                  height: screenHeight * 0.065,
+                                  decoration: BoxDecoration(
+                                    color: motorStatus ? Colors.white : duBlue,
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  child:
+                                    IconButton(
+                                        onPressed: _toggleBuzzer,
+                                        icon: Icon(Icons.notifications_off_outlined,
+                                            size: 20,
+                                            color: motorStatus ? Colors.black : Colors.white
+                                        ),
+                                    ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
