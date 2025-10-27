@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modbus_client/modbus_client.dart';
 import 'package:modbus_client_tcp/modbus_client_tcp.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:duclean/res/Constants.dart';
 import 'dart:async';
 
 import 'package:syncfusion_flutter_gauges/gauges.dart';
@@ -71,7 +72,7 @@ class _MainPageState extends State<MainPage> {
   var diStatusValue; // DI 상태값
   var firmwareVersion;  // 펌웨어 버전
 
-  final runModeList = ['판넬', '연동', '원격', 'RS485'];  // 동작 설정
+  final runModeList = ['판넬', '연동', '원격', '통신(RS485)'];  // 동작 설정
   var runMode = '판넬';
 
   static const _kAlarmCodeKey = 'alarm_current_code';
@@ -299,7 +300,6 @@ class _MainPageState extends State<MainPage> {
   // 게이지 그래프 속성
   Widget _gaugeTile(String title, String valueStr, String unit, double max) {
     final value = double.tryParse(valueStr) ?? 0;
-    const Color duBlue = Color(0xff004d94);
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth; // 1/3 칸의 실제 폭
@@ -317,7 +317,7 @@ class _MainPageState extends State<MainPage> {
           children: [
             Column(
               children: [
-                Text(title, style: TextStyle(fontSize: titleFont, fontWeight: FontWeight.w800, color: duBlue)),
+                Text(title, style: TextStyle(fontSize: titleFont, fontWeight: FontWeight.w800, color: AppColor.duBlue)),
                 SizedBox(
                   height: h,
                   child: SfRadialGauge(
@@ -333,7 +333,7 @@ class _MainPageState extends State<MainPage> {
                         pointers: <GaugePointer>[
                           RangePointer(
                             value: value,
-                            color: duBlue,
+                            color: AppColor.duBlue,
                             width: axis,
                           ),
                         ],
@@ -344,8 +344,8 @@ class _MainPageState extends State<MainPage> {
                             widget: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(valueStr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: valueFont, color: duBlue)),
-                                Text(unit, style: TextStyle(fontSize: unitFont, color: duBlue)),
+                                Text(valueStr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: valueFont, color: AppColor.duBlue)),
+                                Text(unit, style: TextStyle(fontSize: unitFont, color: AppColor.duBlue)),
                               ],
                             ),
                           ),
@@ -365,15 +365,14 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 버전
-    var version = 'V 1.0.2';
-    // 공식 색
-    const Color duBlue = Color(0xff004d94);
 
     // 화면 크기
     Size screenSize = MediaQuery.of(context).size;
     var screenWidth = screenSize.width;
     var screenHeight = screenSize.height;
+
+    // 세로 모드 여부
+    var isPortrait = screenWidth < screenHeight ? true : false;
 
     // 모터 실행 토글 함수
     Future<void> _toggleRun() async {
@@ -392,6 +391,7 @@ class _MainPageState extends State<MainPage> {
       }
     }
 
+    // 부저 함수
     Future<void> _toggleBuzzer() async {
       try{
         if (!mounted) return;
@@ -406,268 +406,305 @@ class _MainPageState extends State<MainPage> {
       backgroundColor: const Color(0xfff6f6f6),
 
       appBar: AppBar(
+        backgroundColor: AppColor.duBlue,
         centerTitle: true,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset('assets/images/logo_white.png', width: 100),
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                version,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(onPressed: (){
-            Navigator.of(context).pushNamed(Routes.alarmPage,
-                arguments: <String, dynamic>{
-                  'date': alarmDate,
-                  "name" : "AP-500"
-                });
-          }, icon: Icon(Icons.notifications, color: Colors.white,size: 30,)),
-          IconButton(onPressed: (){}, icon: Icon(Icons.menu, color: Colors.white, size: 30)),
-        ],
+        title: const SizedBox.shrink(), // 기본 title은 비움(중앙 정렬을 Stack으로 직접 제어)
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        backgroundColor: duBlue,
-      ),
-      body: Center(
-        child: Column(
-          children: [
-            // 운전 조작 관련 패널
-            Container(
-              alignment: Alignment.center,
-              margin: EdgeInsets.symmetric(horizontal: screenWidth*0.05, vertical: screenWidth*0.1),
-              decoration: BoxDecoration(
-                color: motorStatus ? duBlue : Colors.white,
-                border: Border.all(color: duBlue, strokeAlign: BorderSide.strokeAlignOutside, width: 2),
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+        // actions 가장자리 붙는 느낌을 줄이기 위해 Padding 추가
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  onPressed: () {
+                    Navigator.of(context).pushNamed(
+                      Routes.alarmPage,
+                      arguments: <String, dynamic>{'date': alarmDate, "name": "AP-500"},
+                    );
+                  },
+                  icon: const Icon(Icons.notifications, color: Colors.white, size: 30),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  onPressed: () {},
+                  icon: const Icon(Icons.menu, color: Colors.white, size: 30),
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
+          ),
+        ],
+        // 완전 중앙 보정을 위해 flexibleSpace에 Stack 사용
+        flexibleSpace: SafeArea(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset('assets/images/logo_white.png', width: 100),
+                    const SizedBox(width: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        AppConst.version,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child:
-                AspectRatio(
-                  aspectRatio: 1,
-                  child:
-                    Row( 
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Column(
-                          children: [
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: screenWidth * 0.75,
-                              child: Row( // 운전시간 및 판넬 모드
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text("운전 시간: $operationTime H", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black),),
-                                  DropdownButton(
-                                    value: runMode,
-                                    items: runModeList
-                                        .map((e) => DropdownMenuItem(
-                                          value: e,
-                                          child: Text(e),
-                                    )).toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        switch(value){
-                                          case '판넬': writeRegister(34, 0);
-                                          case '연동': writeRegister(34, 1);
-                                          case '원격': writeRegister(34, 2);
-                                          case 'RS485': writeRegister(34, 3);
-                                        }
-                                        runMode = value!;
+            ],
+          ),
+        ),
+      ),
 
-                                      });
-                                    },
+      body: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // 운전 조작 관련 패널
+              Container(
+                alignment: Alignment.center,
+                margin: EdgeInsets.symmetric(horizontal: screenWidth*0.05, vertical: screenWidth*0.1),
+                decoration: BoxDecoration(
+                  color: motorStatus ? AppColor.duBlue : Colors.white,
+                  border: Border.all(color: AppColor.duBlue, strokeAlign: BorderSide.strokeAlignOutside, width: 2),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child:
+                  AspectRatio(
+                    aspectRatio: isPortrait ? 1 : 16/9,
+                    child:
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: screenWidth * 0.75,
+                                child: Row( // 운전시간 및 판넬 모드
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text("운전 시간: $operationTime H", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black),),
+                                    Text("모드: $runMode", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black)),
+                                  ],
+                                ),
+                              ),
+
+                              // 차압 및 전류 정보
+                              Row(
+                                spacing: 3,
+                                children: [
+                                  // 차압 및 펄스 설정
+                                  Container(
+                                    width: screenWidth * 0.5,
+                                    height: isPortrait ? screenHeight * 0.15 : screenHeight * 0.4,
+                                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
+                                    decoration: BoxDecoration(
+                                      border:Border.all(color: motorStatus ? Colors.white : AppColor.duBlue)
+                                    ),
+                                    child:
+                                      Column(
+                                      spacing: 5,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            Icon(Icons.circle,
+                                                size: 14,
+                                                color: pulseColor),
+                                            SizedBox(width: 5,),
+                                            Text(pulseStatus, style:TextStyle(fontSize: 12, fontWeight: FontWeight.w100 ,color: motorStatus ? Colors.white : Colors.black)),
+                                            SizedBox(width: 10,)
+                                          ],
+                                        ),
+                                        Row(
+                                          spacing: 10,
+                                          mainAxisAlignment: MainAxisAlignment.start,
+                                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                                          textBaseline: TextBaseline.alphabetic,
+                                          children: [
+                                            const SizedBox(width: 5),
+                                            Text("$diffPressure", style: TextStyle(fontFamily: "Digital", fontSize: 50, color: motorStatus ? Colors.white : AppColor.duBlue),),
+                                            Text("mmAq", style: TextStyle(fontSize:14, fontWeight: FontWeight.w500, color: motorStatus ? Colors.white : AppColor.duBlue))
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // 전류
+                                  Container(
+                                    width: screenWidth * 0.25,
+                                    height: isPortrait ? screenHeight * 0.15 : screenHeight * 0.4,
+                                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
+                                    decoration: BoxDecoration(
+                                        border:Border.all(color: motorStatus ? Colors.white : AppColor.duBlue)
+                                    ),
+                                    child:
+                                      Column( // 전류 표시
+                                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                        children: [
+                                          Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          textBaseline: TextBaseline.alphabetic,
+                                          children: [
+                                            Text("$power1", style: TextStyle(fontFamily: "Digital", fontSize: 35, color: motorStatus ? Colors.white : AppColor.duBlue),),
+                                            Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : AppColor.duBlue))
+                                          ],
+                                        ),
+                                          Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          textBaseline: TextBaseline.alphabetic,
+                                          children: [
+                                            Text("$power2", style: TextStyle(fontFamily: "Digital", fontSize: 35, color: motorStatus ? Colors.white : AppColor.duBlue),),
+                                            Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : AppColor.duBlue))
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                            Row(
-                              spacing: 3,
-                              children: [
-                                Container(
-                                  width: screenWidth * 0.5,
-                                  height: screenHeight * 0.15,
-                                  margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
-                                  decoration: BoxDecoration(
-                                    border:Border.all(color: motorStatus ? Colors.white : duBlue)
-                                  ),
-                                  child:
-                                  Column(
-                                    spacing: 5,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
-                                        children: [
-                                          Icon(Icons.circle,
-                                              size: 14,
-                                              color: pulseColor),
-                                          SizedBox(width: 5,),
-                                          Text(pulseStatus, style:TextStyle(fontSize: 12, fontWeight: FontWeight.w100 ,color: motorStatus ? Colors.white : Colors.black)),
-                                          SizedBox(width: 10,)
-                                        ],
-                                      ),
-                                      Row(
-                                        spacing: 10,
-                                        mainAxisAlignment: MainAxisAlignment.start,
-                                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                                        textBaseline: TextBaseline.alphabetic,
-                                        children: [
-                                          const SizedBox(width: 5),
-                                          Text("$diffPressure", style: TextStyle(fontFamily: "Digital", fontSize: 50, color: motorStatus ? Colors.white : duBlue),),
-                                          Text("mmAq", style: TextStyle(fontSize:14, fontWeight: FontWeight.w500, color: motorStatus ? Colors.white : duBlue))
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  width: screenWidth * 0.25,
-                                  height: screenHeight * 0.15,
-                                  margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
-                                  decoration: BoxDecoration(
-                                      border:Border.all(color: motorStatus ? Colors.white : duBlue)
-                                  ),
-                                  child:
-                                    Column( // 전류 표시
-                                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+
+                              // 주파수 및 펄싱
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: screenWidth * 0.38,
+                                    height: isPortrait ? screenHeight * 0.1 : screenHeight * 0.3,
+                                    decoration: BoxDecoration(border: Border.all(color: AppColor.duBlue, width: 1)),
+                                    child: Row(
                                       children: [
-                                        Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        textBaseline: TextBaseline.alphabetic,
-                                        children: [
-                                          Text("$power1", style: TextStyle(fontFamily: "Digital", fontSize: 35, color: motorStatus ? Colors.white : duBlue),),
-                                          Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : duBlue))
-                                        ],
-                                      ),
-                                        Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        textBaseline: TextBaseline.alphabetic,
-                                        children: [
-                                          Text("$power2", style: TextStyle(fontFamily: "Digital", fontSize: 35, color: motorStatus ? Colors.white : duBlue),),
-                                          Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : duBlue))
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            // 운전 시작 버튼
-                            Row(
-                              spacing: 10,
-                              children: [
-                                SizedBox(
-                                  width: screenWidth * 0.55,
-                                  height: screenHeight * 0.065,
-                                  child:
-                                    ElevatedButton(
-                                      onPressed: _toggleRun,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: motorStatus ? Colors.white : duBlue,
-                                        shadowColor: Colors.black,
-                                        elevation: 2,
-                                        textStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
-                                      ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(motorStatus ? Icons.stop : Icons.play_arrow,
-                                                  size: 24,
-                                                  color: motorStatus ? Colors.black : Colors.white),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                motorStatus ? '운전 정지' : '운전 시작',
-                                                style: TextStyle(
-                                                  fontSize: 20,
-                                                  color: motorStatus ? Colors.black : Colors.white,
-                                                ),
-                                              ),
-                                            ],
-                                          )
-                                        ],
-                                      ),
+                                        Image.asset('assets/images/Fan_1.gif', width: 100),
+                                      ],
                                     ),
-                                ),
-                                // 부저 정지 버튼
-                                Container(
-                                  width: screenWidth * 0.15,
-                                  height: screenHeight * 0.065,
-                                  decoration: BoxDecoration(
-                                    color: motorStatus ? Colors.white : duBlue,
-                                    borderRadius: BorderRadius.circular(25),
                                   ),
-                                  child:
-                                    IconButton(
-                                        onPressed: _toggleBuzzer,
-                                        icon: Icon(Icons.notifications_off_outlined,
-                                            size: 20,
-                                            color: motorStatus ? Colors.black : Colors.white
+                                  Container(
+                                    width: screenWidth * 0.38,
+                                    height: isPortrait ? screenHeight * 0.1 : screenHeight * 0.3,
+                                    decoration: BoxDecoration(border: Border.all(color: AppColor.duBlue, width: 1)),
+                                  ),
+                                ],
+                              ),
+                              // 운전 시작 버튼
+                              Row(
+                                spacing: 10,
+                                children: [
+                                  SizedBox(
+                                    width: screenWidth * 0.55,
+                                    height: isPortrait ? screenHeight * 0.065 : screenHeight * 0.15,
+                                    child:
+                                      ElevatedButton(
+                                        onPressed: _toggleRun,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: motorStatus ? Colors.white : AppColor.duBlue,
+                                          shadowColor: Colors.black,
+                                          elevation: 2,
+                                          textStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
                                         ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(motorStatus ? Icons.stop : Icons.play_arrow,
+                                                    size: 24,
+                                                    color: motorStatus ? Colors.black : Colors.white),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  motorStatus ? '운전 정지' : '운전 시작',
+                                                  style: TextStyle(
+                                                    fontSize: 20,
+                                                    color: motorStatus ? Colors.black : Colors.white,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          ],
+                                        ),
+                                      ),
+                                  ),
+                                  // 부저 정지 버튼
+                                  Container(
+                                    width: screenWidth * 0.15,
+                                    height: isPortrait ? screenHeight * 0.065 : screenHeight * 0.15,
+                                    decoration: BoxDecoration(
+                                      color: motorStatus ? Colors.white : AppColor.duBlue,
+                                      borderRadius: BorderRadius.circular(25),
                                     ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                ),
-            ),
-
-            // 게이지 그래프 (차압, 전류1, 전류2)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.01),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
+                                    child:
+                                      IconButton(
+                                          onPressed: _toggleBuzzer,
+                                          icon: Icon(Icons.notifications_off_outlined,
+                                              size: 20,
+                                              color: motorStatus ? Colors.black : Colors.white
+                                          ),
+                                      ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                   ),
-                ],
               ),
-              child:
-                Padding(
-                  padding: EdgeInsetsGeometry.fromLTRB(0, 30, 0, 0),
-                  child:
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _gaugeTile('차압', diffPressure.toString(), 'mmAq',500)),
-                        Expanded(child: _gaugeTile('전류1', power1.toString(), 'A', 60)),
-                        Expanded(child: _gaugeTile('전류2', power2.toString(), 'A', 60)),
-                      ],
+              // 게이지 그래프 (차압, 전류1, 전류2)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.01),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
                     ),
+                  ],
                 ),
-            ),
+                child:
+                  Padding(
+                    padding: EdgeInsetsGeometry.fromLTRB(0, 30, 0, 0),
+                    child:
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _gaugeTile('차압', diffPressure.toString(), 'mmAq',500)),
+                          Expanded(child: _gaugeTile('전류1', power1.toString(), 'A', 60)),
+                          Expanded(child: _gaugeTile('전류2', power2.toString(), 'A', 60)),
+                        ],
+                      ),
+                  ),
+              ),
 
 
 
 
-          ],
+            ],
+          ),
         ),
       ),
     );

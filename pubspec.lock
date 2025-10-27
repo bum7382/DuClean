@@ -212,10 +212,10 @@ packages:
     dependency: "direct main"
     description:
       name: modbus_client
-      sha256: d3a8d5fc07a091ded4863e92af230b114d3a67c4b1bea6a6b4d2c11ada848f09
+      sha256: "48ca03d684a4ed30f8713cc3f30ec9f18c75240f70b7538b878ba7c309b56422"
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.3+1"
+    version: "1.4.4"
   modbus_client_tcp:
     dependency: "direct main"
     description:
@@ -385,18 +385,18 @@ packages:
     dependency: transitive
     description:
       name: syncfusion_flutter_core
-      sha256: "3135dc6b427686cdda1546bdeab3a4a45372f5bb3d95369e007776b605f863ac"
+      sha256: d03c43f577cdbe020d1632bece00cbf8bec4a7d0ab123923b69141b5fec35420
       url: "https://pub.dev"
     source: hosted
-    version: "31.1.23"
+    version: "31.2.3"
   syncfusion_flutter_gauges:
     dependency: "direct main"
     description:
       name: syncfusion_flutter_gauges
-      sha256: d198156b0248eb5ccf9ddc9d763953193156dadd7862d3147ab290d3222c3a6f
+      sha256: "9f4ffc5ff176eb0d5821891b6f7b9e7df94965b4630d62ec63062400ad3256f8"
       url: "https://pub.dev"
     source: hosted
-    version: "31.1.23"
+    version: "31.2.3"
   synchronized:
     dependency: transitive
     description:

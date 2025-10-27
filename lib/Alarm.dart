@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:duclean/res/Constants.dart';
 
 const String _kAlarmCodeKey = 'alarm_current_code';
 const String _kAlarmDateKey = 'alarm_current_date_ms';
@@ -8,7 +9,6 @@ const String _kAlarmDateKey = 'alarm_current_date_ms';
 /// 알람 히스토리 키
 const String _kAlarmHistKey = 'alarm_history';
 
-const Color duBlue = Color(0xff004d94);
 const String _defaultDeviceName = 'AP-500';
 
 String _alarmMessage(int code) {
@@ -117,7 +117,7 @@ class AlarmPage extends StatelessWidget {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        backgroundColor: duBlue,
+        backgroundColor: AppColor.duBlue,
       ),
       body: FutureBuilder<_LoadedData>(
         future: _loadAndMaybeAppend(),
@@ -167,7 +167,7 @@ class AlarmPage extends StatelessWidget {
                         children: [
                           Text(deviceName,
                               style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.w600, color: duBlue)),
+                                  fontSize: 18, fontWeight: FontWeight.w600, color: AppColor.duBlue)),
                           const SizedBox(height: 4),
                           Text(timeText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
                         ],

@@ -3,6 +3,7 @@ import 'package:duclean/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
+import 'package:duclean/res/Constants.dart';
 import 'dart:math';
 
 /*
@@ -82,11 +83,6 @@ class IntroPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
 
-    // 버전
-    var version = 'V 1.0.1';
-    // 공식 색
-    var duBlue = Color(0xff004d94);
-
     // 화면 크기
     Size screenSize = MediaQuery.of(context).size;
     var screenWidth = screenSize.width;
@@ -107,11 +103,11 @@ class IntroPage extends StatelessWidget {
               Image.asset('assets/images/logo_white.png', width: 100),
               Padding(
                 padding: const EdgeInsets.only(top:6),
-                child: Text(version, style: TextStyle(color: Colors.white, fontSize: 13),),
+                child: Text(AppConst.version, style: TextStyle(color: Colors.white, fontSize: 13),),
               )
             ],
           ),
-          backgroundColor: duBlue,
+          backgroundColor: AppColor.duBlue,
         ),
         // 몸체
         body: Align(
@@ -123,7 +119,7 @@ class IntroPage extends StatelessWidget {
               children: [
                 SizedBox(height: 100,),
                 Text("Your Standard,\nDUCLEAN",style:
-                  TextStyle(fontSize: 30, fontWeight: FontWeight.w700,color: duBlue),
+                  TextStyle(fontSize: 30, fontWeight: FontWeight.w700,color: AppColor.duBlue),
                             textAlign: TextAlign.center,),
                 // 연결 목록 버튼
                 SizedBox(
@@ -134,7 +130,7 @@ class IntroPage extends StatelessWidget {
                       Navigator.of(context).pushNamed(Routes.mainPage);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: duBlue,
+                      backgroundColor: AppColor.duBlue,
                       foregroundColor: Colors.white,
                       textStyle: TextStyle(
                         fontSize: 20,
@@ -154,7 +150,7 @@ class IntroPage extends StatelessWidget {
         ),
         bottomNavigationBar: BottomAppBar(
           height: 10,
-          color: duBlue,
+          color: AppColor.duBlue,
         )
     );
   }
