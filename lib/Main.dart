@@ -23,8 +23,10 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   // 통신 설정
-  final String _host = "192.168.10.190";
-  final int _unitId = 1;
+  String _host = "192.168.10.190"; // ConnectList에서 덮어씀
+  int _unitId = 1;                 // ConnectList에서 덮어씀
+  String _deviceName = "AP-500";   // UI 표시용 이름
+  bool _bootStrapped = false;      // args 1회 처리 가드
 
   // 소켓 & 폴링 상태
   ModbusClientTcp? _client;
@@ -64,34 +66,54 @@ class _MainPageState extends State<MainPage> {
   var alarmCode; // 알람발생코드
 
   var preAlarm = -1; // 이전 알람
+  var isAlarmClear = true;  // 알람 해제 여부
   var currentAlarm = 0;  // 현재 알람
   bool isAlarmChanged = false; // 알람 변경 여부
   var alarmDate; // 알람 발생 시각
 
-  var alarmCount;  // 발생알람개수
+  var alarmCount = 0;  // 발생알람개수
   var diStatusValue; // DI 상태값
   var firmwareVersion;  // 펌웨어 버전
 
   final runModeList = ['판넬', '연동', '원격', '통신(RS485)'];  // 동작 설정
   var runMode = '판넬';
 
-  static const _kAlarmCodeKey = 'alarm_current_code';
-  static const _kAlarmDateKey = 'alarm_current_date_ms';
+  static const _kAlarmCodeKey = 'alarm_current_code'; // 현재 알람 코드
+  static const _kAlarmDateKey = 'alarm_current_date_ms';  // 현재 알람 발생 시각
+  static const String _kAlarmClearedCodeKey     = 'alarm_cleared_code'; // 해제한 알람 코드
+  static const String _kAlarmClearedAtKey       = 'alarm_cleared_at_ms';  // 해제 시간
+  static const String _kAlarmClearedSourceTsKey = 'alarm_cleared_source_ts_ms'; // 해제된 알람 키
 
   @override
   // 타이머 시작
   void initState() {
     super.initState();
     _inputs = ModbusElementsGroup(
-      List.generate(70, (i) =>
-          ModbusUint16Register(
-            name: 'in_$i',
-            type: ModbusElementType.inputRegister,
-            address: i,
-          )),
+      List.generate(70, (i) => ModbusUint16Register(
+        name: 'in_$i',
+        type: ModbusElementType.inputRegister,
+        address: i,
+      )),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_bootStrapped) return;
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map<String, dynamic>) {
+      _host = args['host'] as String? ?? _host;
+      _unitId = (args['unitId'] as num?)?.toInt() ?? _unitId;
+      _deviceName = args['name'] as String? ?? _deviceName;
+    }
+    _bootStrapped = true;
+
+    // 인자 반영 후에 초기화/폴링 시작
     _initPrefsAndStart();
   }
+
 
   Future<void> _initPrefsAndStart() async {
     _prefs = await SharedPreferences.getInstance();
@@ -165,21 +187,32 @@ class _MainPageState extends State<MainPage> {
 
         final runFlag = (_inputs[14] as ModbusUint16Register).value?.toInt() ?? 0;  // 송풍기 운전 상태
 
-        final alarmFlag = (_inputs[24] as ModbusUint16Register).value?.toInt() ?? 0;  // 알람부저 플래그
         final curAlarm = (_inputs[25] as ModbusUint16Register).value?.toInt() ?? 0;  // 알람 이력
 
-        if (alarmFlag != 0) {
-          if((curAlarm != 0) && (preAlarm != curAlarm)){
-            alarmDate = DateTime.now();
-            await _prefs.setInt(_kAlarmCodeKey, curAlarm);
-            await _prefs.setInt(_kAlarmDateKey, (alarmDate as DateTime).millisecondsSinceEpoch);
-            preAlarm = curAlarm;
-          }
-          else if(curAlarm == 0){
-            preAlarm = curAlarm;
-          }
-        }
+        final alarmCnt = (_inputs[40] as ModbusUint16Register).value?.toInt() ?? 0;  // 알람 개수
 
+        final now = DateTime.now();
+
+        if (curAlarm != 0 && preAlarm != curAlarm) {
+          // 새 알람 발생 (0→N 또는 N→M)
+          await _prefs.setInt(_kAlarmCodeKey, curAlarm);  // 현재 알람 기록
+          await _prefs.setInt(_kAlarmDateKey, now.millisecondsSinceEpoch);  // 발생 시간 기록
+          isAlarmClear = false;
+          preAlarm = curAlarm;
+        } else if (curAlarm == 0) {
+          // 해제(N→0)일 때
+          if (preAlarm != 0) {
+            await _prefs.setInt(_kAlarmClearedCodeKey, preAlarm);
+            await _prefs.setInt(_kAlarmClearedAtKey, now.millisecondsSinceEpoch);
+            final sourceTs = _prefs.getInt(_kAlarmDateKey);
+            if (sourceTs != null) {
+              await _prefs.setInt(_kAlarmClearedSourceTsKey, sourceTs);
+            }
+            isAlarmClear = true;
+          }
+          // 초기화
+          preAlarm = 0;
+        }
 
         if (!mounted) return;
 
@@ -192,6 +225,7 @@ class _MainPageState extends State<MainPage> {
           pulseStatus = pulseStatusLabel(pul);
           motorStatus = (runFlag != 0);
           currentAlarm = curAlarm;
+          alarmCount = alarmCnt;
 
           // 성공 시 백오프 리셋
           _reconnectAttempt = 0;
@@ -402,18 +436,19 @@ class _MainPageState extends State<MainPage> {
       }
     }
 
+
+
     return Scaffold(
-      backgroundColor: const Color(0xfff6f6f6),
+      backgroundColor: AppColor.bg,
 
       appBar: AppBar(
         backgroundColor: AppColor.duBlue,
         centerTitle: true,
-        title: const SizedBox.shrink(), // 기본 title은 비움(중앙 정렬을 Stack으로 직접 제어)
+        title: const SizedBox.shrink(),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        // actions 가장자리 붙는 느낌을 줄이기 위해 Padding 추가
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -424,10 +459,53 @@ class _MainPageState extends State<MainPage> {
                   onPressed: () {
                     Navigator.of(context).pushNamed(
                       Routes.alarmPage,
-                      arguments: <String, dynamic>{'date': alarmDate, "name": "AP-500"},
+                      arguments: <String, dynamic>{'date': alarmDate, "name": _deviceName},
+
                     );
                   },
-                  icon: const Icon(Icons.notifications, color: Colors.white, size: 30),
+                  icon: SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // 알람
+                        Align(
+                          alignment: Alignment.center,
+                          child: Icon(
+                            alarmCount > 0 ? Icons.notifications_on : Icons.notifications,
+                            size: 30,
+                            color: alarmCount > 0 ? Colors.red : Colors.white,
+                          ),
+                        ),
+                        // 알람 개수
+                        if (alarmCount > 0)
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              constraints: const BoxConstraints(minWidth: 18),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white, width: 1.2),
+                              ),
+                              child: Text(
+                                alarmCount.toString(),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 4),
                 IconButton(
@@ -439,7 +517,6 @@ class _MainPageState extends State<MainPage> {
             ),
           ),
         ],
-        // 완전 중앙 보정을 위해 flexibleSpace에 Stack 사용
         flexibleSpace: SafeArea(
           child: Stack(
             alignment: Alignment.center,
@@ -503,6 +580,26 @@ class _MainPageState extends State<MainPage> {
                                   children: [
                                     Text("운전 시간: $operationTime H", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black),),
                                     Text("모드: $runMode", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black)),
+                                    /*DropdownButton(
+                                      value: runMode,
+                                      items: runModeList
+                                          .map((e) => DropdownMenuItem(
+                                        value: e,
+                                        child: Text(e),
+                                      )).toList(),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          switch(value){
+                                            case '판넬': writeRegister(34, 0);
+                                            case '연동': writeRegister(34, 1);
+                                            case '원격': writeRegister(34, 2);
+                                            case '통신(RS485)': writeRegister(34, 3);
+                                          }
+                                          runMode = value!;
+
+                                        });
+                                      },
+                                    ),*/
                                   ],
                                 ),
                               ),

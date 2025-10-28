@@ -5,6 +5,9 @@ import 'package:duclean/res/Constants.dart';
 
 const String _kAlarmCodeKey = 'alarm_current_code';
 const String _kAlarmDateKey = 'alarm_current_date_ms';
+const String _kAlarmClearedSourceTsKey = 'alarm_cleared_source_ts_ms';
+const String _kAlarmClearedCodeKey    = 'alarm_cleared_code';
+const String _kAlarmClearedAtKey      = 'alarm_cleared_at_ms';
 
 /// 알람 히스토리 키
 const String _kAlarmHistKey = 'alarm_history';
@@ -33,18 +36,39 @@ String _formatKTime(DateTime ts) {
 }
 
 class _AlarmEntry {
-  final int code;
-  final int tsMs; // epoch ms
-  const _AlarmEntry({required this.code, required this.tsMs});
+  final int code;          // 발생 코드(1~7)
+  final int tsMs;          // 발생 시각(epoch ms)
+  final int? clearedTsMs;  // 해제 시각(epoch ms), 없으면 미해제
 
-  Map<String, dynamic> toJson() => {'code': code, 'ts': tsMs};
+  const _AlarmEntry({
+    required this.code,
+    required this.tsMs,
+    this.clearedTsMs,
+  });
+
+  _AlarmEntry copyWith({int? code, int? tsMs, int? clearedTsMs}) {
+    return _AlarmEntry(
+      code: code ?? this.code,
+      tsMs: tsMs ?? this.tsMs,
+      clearedTsMs: clearedTsMs ?? this.clearedTsMs,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'code': code,
+    'ts': tsMs,
+    if (clearedTsMs != null) 'cleared_ts': clearedTsMs,
+  };
+
   static _AlarmEntry? fromJson(Map<String, dynamic> m) {
     final ts = (m['ts'] as num?)?.toInt();
     final code = (m['code'] as num?)?.toInt();
+    final cleared = (m['cleared_ts'] as num?)?.toInt();
     if (ts == null || code == null) return null;
-    return _AlarmEntry(code: code, tsMs: ts);
+    return _AlarmEntry(code: code, tsMs: ts, clearedTsMs: cleared);
   }
 }
+
 
 class _LoadedData {
   final List<_AlarmEntry> entries; // 최신순
@@ -53,15 +77,36 @@ class _LoadedData {
   _LoadedData(this.entries, this.latestCode, this.latestTs);
 }
 
-class AlarmPage extends StatelessWidget {
+class AlarmPage extends StatefulWidget {
   const AlarmPage({super.key});
+
+  @override
+  State<AlarmPage> createState() => _AlarmPageState();
+}
+
+class _AlarmPageState extends State<AlarmPage> {
+  late Stream<_LoadedData> _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    _stream = _alarmStream(); // 페이지가 보이는 동안 1초 주기로 새로고침
+  }
+
+  // 1초마다 SharedPreferences를 다시 읽음
+  Stream<_LoadedData> _alarmStream() async* {
+    while (mounted) {
+      yield await _loadAndMaybeAppend();
+      await Future.delayed(const Duration(seconds: 1));
+    }
+  }
 
   Future<_LoadedData> _loadAndMaybeAppend() async {
     final prefs = await SharedPreferences.getInstance();
 
     // 최신값 읽기
     final latestCode = prefs.getInt(_kAlarmCodeKey);
-    final latestTs = prefs.getInt(_kAlarmDateKey);
+    final latestTs   = prefs.getInt(_kAlarmDateKey);
 
     // 기존 히스토리 로드
     final raw = prefs.getStringList(_kAlarmHistKey) ?? const <String>[];
@@ -74,41 +119,83 @@ class AlarmPage extends StatelessWidget {
       } catch (_) {/* skip */}
     }
 
-    // 최신값이 있고(code != 0) 아직 히스토리에 없으면 1건 추가
+    bool touched = false;
+
+    // 최신 발생값이 있고 아직 없으면 append
     if (latestCode != null && latestTs != null && latestCode != 0) {
       final exists = parsed.any((e) => e.tsMs == latestTs && e.code == latestCode);
       if (!exists) {
         parsed.add(_AlarmEntry(code: latestCode, tsMs: latestTs));
-        // 용량 제한
-        const maxKeep = 500;
-        if (parsed.length > maxKeep) {
-          parsed.sort((a, b) => a.tsMs.compareTo(b.tsMs));
-          parsed.removeRange(0, parsed.length - maxKeep);
-        }
-        // 저장
-        final toSave = parsed.map((e) => jsonEncode(e.toJson())).toList();
-        await prefs.setStringList(_kAlarmHistKey, toSave);
+        touched = true;
       }
     }
 
-    // 최신순 정렬
+    // 해제 신호 병합
+    final clearedSourceTs = prefs.getInt(_kAlarmClearedSourceTsKey);
+    final clearedCode     = prefs.getInt(_kAlarmClearedCodeKey);
+    final clearedAtMs     = prefs.getInt(_kAlarmClearedAtKey);
+
+    if (clearedSourceTs != null && clearedAtMs != null) {
+      int idx = -1;
+      // 1순위: (ts, code) 동시 일치
+      if (clearedCode != null) {
+        idx = parsed.indexWhere((e) => e.tsMs == clearedSourceTs && e.code == clearedCode);
+      }
+      // 2순위: ts만 일치
+      if (idx == -1) {
+        idx = parsed.indexWhere((e) => e.tsMs == clearedSourceTs);
+      }
+      // 3순위: code 일치 & 아직 미해제인 최신 건
+      if (idx == -1 && clearedCode != null) {
+        idx = parsed.indexWhere((e) => e.code == clearedCode && e.clearedTsMs == null);
+      }
+
+      if (idx != -1 && parsed[idx].clearedTsMs == null) {
+        parsed[idx] = parsed[idx].copyWith(clearedTsMs: clearedAtMs);
+        touched = true;
+      }
+
+      // 해제 신호는 1회용 → 소모
+      await prefs.remove(_kAlarmClearedSourceTsKey);
+      await prefs.remove(_kAlarmClearedCodeKey);
+      await prefs.remove(_kAlarmClearedAtKey);
+    }
+
+    // 용량 제한(오래된 것 제거)
+    const maxKeep = 500;
+    if (parsed.length > maxKeep) {
+      parsed.sort((a, b) => a.tsMs.compareTo(b.tsMs));
+      parsed.removeRange(0, parsed.length - maxKeep);
+      touched = true;
+    }
+
+    // 변경되었으면 저장
+    if (touched) {
+      final toSave = parsed.map((e) => jsonEncode(e.toJson())).toList();
+      await prefs.setStringList(_kAlarmHistKey, toSave);
+    }
+
+    // 최신순 정렬 후 반환
     parsed.sort((a, b) => b.tsMs.compareTo(a.tsMs));
     return _LoadedData(parsed, latestCode, latestTs);
   }
 
+
   @override
   Widget build(BuildContext context) {
     // 기기 이름 인자
-    String deviceName = _defaultDeviceName;
-    final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is Map<String, dynamic>) {
-      deviceName = args['name'] as String? ?? deviceName;
-    } else if (args is String) {
-      deviceName = args;
+    String? _resolveDeviceName(BuildContext context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic>) {
+        return args['name'] as String?;
+      } else if (args is String) {
+        return args;
+      }
+      return null;
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xfff6f6f6),
+      backgroundColor: AppColor.bg,
       appBar: AppBar(
         centerTitle: true,
         title: const Text('알람 내역',
@@ -119,8 +206,8 @@ class AlarmPage extends StatelessWidget {
         ),
         backgroundColor: AppColor.duBlue,
       ),
-      body: FutureBuilder<_LoadedData>(
-        future: _loadAndMaybeAppend(),
+      body: StreamBuilder<_LoadedData>(
+        stream: _stream,
         builder: (context, snap) {
           if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -134,51 +221,86 @@ class AlarmPage extends StatelessWidget {
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            itemCount: entries.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, i) {
-              final e = entries[i];
-              final time = DateTime.fromMillisecondsSinceEpoch(e.tsMs).toLocal();
-              final timeText = _formatKTime(time);
-              final msg = _alarmMessage(e.code);
-
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 왼쪽: 기기명 + 시간
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(deviceName,
-                              style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.w600, color: AppColor.duBlue)),
-                          const SizedBox(height: 4),
-                          Text(timeText, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                    // 오른쪽: 알람 메시지
-                    Text(msg, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              );
+          return RefreshIndicator(
+            onRefresh: () async {
+              setState(() { _stream = _alarmStream(); });
+              await Future.delayed(const Duration(milliseconds: 300));
             },
+            edgeOffset: 10, // Indicator 생성위치
+            displacement: 10, // Indicator 최종 위치
+            color: Colors.white, // Indicator 색상
+            backgroundColor: AppColor.duBlue,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: entries.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, i) {
+                final e = entries[i];
+
+                final occurredAt = DateTime.fromMillisecondsSinceEpoch(e.tsMs).toLocal();
+                final occurredText = _formatKTime(occurredAt);
+
+                final clearedAt = (e.clearedTsMs != null)
+                    ? DateTime.fromMillisecondsSinceEpoch(e.clearedTsMs!).toLocal()
+                    : null;
+                final clearedText = (clearedAt != null) ? _formatKTime(clearedAt) : null;
+
+                final msg = _alarmMessage(e.code);
+                final isCleared = clearedAt != null;
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 왼쪽: 기기명 + 시간
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _resolveDeviceName(context) ?? _defaultDeviceName,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: isCleared ? Colors.grey : AppColor.duBlue,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text("발생 시각: $occurredText",
+                                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                            if (isCleared) ...[
+                              const SizedBox(height: 2),
+                              Text("해제 시각: $clearedText",
+                                  style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                            ],
+                          ],
+                        ),
+                      ),
+                      // 오른쪽: 알람 메시지
+                      Text( msg,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isCleared ? Colors.grey : Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           );
         },
       ),

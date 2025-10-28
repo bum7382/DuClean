@@ -93,7 +93,7 @@ class IntroPage extends StatelessWidget {
     final double buttonHeight = screenHeight * 0.07;
 
     return Scaffold(
-        backgroundColor: Color(0xfff6f6f6),
+        backgroundColor: AppColor.bg,
         // 상단 바
         appBar: AppBar(
           centerTitle: true,
@@ -127,7 +127,8 @@ class IntroPage extends StatelessWidget {
                   height: buttonHeight,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.of(context).pushNamed(Routes.mainPage);
+                      //Navigator.of(context).pushNamed(Routes.mainPage);
+                      Navigator.of(context).pushNamed(Routes.connectListPage);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColor.duBlue,

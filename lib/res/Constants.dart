@@ -8,5 +8,5 @@ class AppColor {
 
 /// 문자열/숫자 등 일반 상수
 class AppConst {
-  static const version = 'V 1.0.2';
+  static const version = 'V 1.0.3';
 }
