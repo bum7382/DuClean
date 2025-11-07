@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'services/modbus_manager.dart';
 import '/routes.dart';
 import 'res/Constants.dart';
+import 'package:duclean/res/Constants.dart';
 
 // 연결 부분과 관련하여 처리되지 않았습니다.메뉴 프로토타입입니다. (미완성)
 
@@ -20,7 +21,7 @@ class ConnectListPage extends StatefulWidget {
 }
 
 class _ConnectListPageState extends State<ConnectListPage> {
-  List<DeviceKey> _items = [];
+  List<DeviceKey> _items = [];  // 저장된 기기
   bool _loading = true;
 
   @override
@@ -122,7 +123,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('장비 삭제'),
-        content: Text('${d.name} (${d.host} · Unit ${d.unitId})를 삭제할까요?'),
+        content: Text('${d.name} (${d.host} | Unit ${d.unitId})를 삭제할까요?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
           FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제')),
@@ -230,13 +231,13 @@ class _DeviceTileState extends State<_DeviceTile> {
   Widget build(BuildContext context) {
     final d = widget.device;
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
       leading: CircleAvatar(
         backgroundColor: _connected ? Colors.green : Colors.grey,
         child: const Icon(Icons.memory, color: Colors.white),
       ),
-      title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-      subtitle: Text('${d.host}  ·  Unit ${d.unitId}'),
+      title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+      subtitle: Text('${d.host} Unit ID : ${d.unitId}', style: TextStyle(fontWeight: FontWeight.w200, fontSize: 12),),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -245,11 +246,11 @@ class _DeviceTileState extends State<_DeviceTile> {
             icon: const Icon(Icons.edit, color: Colors.grey),
             onPressed: widget.onEdit,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 1),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: AppColor.duBlue,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             ),
             onPressed: widget.onOpen,
             child: const Text('열기'),
@@ -344,7 +345,9 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
               controller: _name,
               decoration: const InputDecoration(
                 labelText: '이름',
-                hintText: '예: AP-500',
+                hintText: 'AP-500',
+                hintStyle: TextStyle(color: Colors.black26),
+                floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -352,8 +355,10 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
             TextField(
               controller: _host,
               decoration: const InputDecoration(
-                labelText: 'Host(IP 또는 도메인)',
+                labelText: 'IP',
                 hintText: '예: 192.168.10.190',
+                hintStyle: TextStyle(color: Colors.black26),
+                floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.url,
@@ -363,7 +368,9 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
               controller: _unit,
               decoration: const InputDecoration(
                 labelText: 'Unit ID',
-                hintText: '0 ~ 247',
+                hintText: '0',
+                hintStyle: TextStyle(color: Colors.black26),
+                floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,

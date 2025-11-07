@@ -51,6 +51,7 @@ class _MainPageState extends State<MainPage> {
 
   var solValveStatus = false;  // 솔밸브 동작상태
 
+  // 필터 정보 활성화 25.10.31
   var filterTime = 0; // 필터 교체 시간
   var filterCount = 0; // 필터 교체 횟수
 
@@ -75,8 +76,16 @@ class _MainPageState extends State<MainPage> {
   var diStatusValue; // DI 상태값
   var firmwareVersion;  // 펌웨어 버전
 
+// Holding Register(4x)
   final runModeList = ['판넬', '연동', '원격', '통신(RS485)'];  // 동작 설정
   var runMode = '판넬';
+
+  var fanFreq = 0; // #60 송풍기 가동 주파수
+  var pulseDiff = 0; // #27 펄스 작동 차압
+  var solCount = 0; // #30 동작 솔 밸브 갯수
+
+
+
 
   static const _kAlarmCodeKey = 'alarm_current_code'; // 현재 알람 코드
   static const _kAlarmDateKey = 'alarm_current_date_ms';  // 현재 알람 발생 시각
@@ -123,10 +132,17 @@ class _MainPageState extends State<MainPage> {
 
   // 첫 진입 시 R/W 레지스터 값 읽어서 초기화
   Future<void> _readOnEnter() async {
+    final diff = await readRegister(27);
+    final sol = await readRegister(33);
     final mode = await readRegister(34);
+    final freq = await readRegister(60);
+
     if (mounted) {
       setState(() {
         runMode = mode != null? runModeList[mode] : '판넬';
+        fanFreq = freq != null? freq : 0;
+        pulseDiff = diff != null? diff : 0;
+        solCount = sol != null? sol : 0;
       });
     }
   }
@@ -179,6 +195,12 @@ class _MainPageState extends State<MainPage> {
         final p1 = ((_inputs[1]  as ModbusUint16Register).value?.toDouble() ?? 0) / 10; // 전류 1
         final p2 = ((_inputs[2]  as ModbusUint16Register).value?.toDouble() ?? 0) / 10; // 전류 2
 
+        //필터 정보
+        //var filterTime = 0; // 필터 교체 시간
+        //var filterCount = 0; // 필터 교체 횟수
+        final filterUsed = (_inputs[16] as ModbusUint16Register).value?.toInt() ?? 0;  // 필터 사용 시간
+        final filterChange = (_inputs[17] as ModbusUint16Register).value?.toInt() ?? 0;  // 필터 교체 횟수
+
         // 운전시간
         final opHi = (_inputs[11]  as ModbusUint16Register).value?.toInt() ?? 0;  // 상위
         final opLo = (_inputs[12]  as ModbusUint16Register).value?.toInt() ?? 0;  // 하위
@@ -226,6 +248,9 @@ class _MainPageState extends State<MainPage> {
           motorStatus = (runFlag != 0);
           currentAlarm = curAlarm;
           alarmCount = alarmCnt;
+          //필터 정보
+          filterTime = filterUsed;
+          filterCount = filterChange;
 
           // 성공 시 백오프 리셋
           _reconnectAttempt = 0;
@@ -451,7 +476,7 @@ class _MainPageState extends State<MainPage> {
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: 7),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -519,20 +544,22 @@ class _MainPageState extends State<MainPage> {
         ],
         flexibleSpace: SafeArea(
           child: Stack(
-            alignment: Alignment.center,
+            //alignment: Alignment.topLeft,
             children: [
               Align(
                 alignment: Alignment.center,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
+                  //mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  //crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Image.asset('assets/images/logo_white.png', width: 100),
-                    const SizedBox(width: 6),
+                    Image.asset('assets/images/logo_white.png', width: 95),
+                    const SizedBox(width: 5),
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
                         AppConst.version,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style: const TextStyle(color: Colors.white, fontSize: 11),
                       ),
                     ),
                   ],
@@ -543,17 +570,21 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
 
-      body: Center(
-        child: SingleChildScrollView(
+      body:  Center(
+        //child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 0),
           child: Column(
+            //mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 운전 조작 관련 패널
               Container(
                 alignment: Alignment.center,
-                margin: EdgeInsets.symmetric(horizontal: screenWidth*0.05, vertical: screenWidth*0.1),
+                margin: EdgeInsets.symmetric(horizontal: screenWidth*0.02, vertical: screenWidth*0.05),
                 decoration: BoxDecoration(
                   color: motorStatus ? AppColor.duBlue : Colors.white,
-                  border: Border.all(color: AppColor.duBlue, strokeAlign: BorderSide.strokeAlignOutside, width: 2),
+                  border: Border.all(color: AppColor.duBlue, strokeAlign: BorderSide.strokeAlignCenter, width: 2),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
@@ -568,18 +599,19 @@ class _MainPageState extends State<MainPage> {
                     aspectRatio: isPortrait ? 1 : 16/9,
                     child:
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center, //박스 내 가로축 정렬상태
                         children: [
                           Column(
+                            mainAxisAlignment: MainAxisAlignment.center,//박스 내 세로축 정렬상태
                             children: [
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 5),
                               SizedBox(
-                                width: screenWidth * 0.75,
+                                width: screenWidth * 0.8,
                                 child: Row( // 운전시간 및 판넬 모드
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text("운전 시간: $operationTime H", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black),),
-                                    Text("모드: $runMode", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black)),
+                                    Text("운전 시간: $operationTime H", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black),),
+                                    Text("모드: $runMode", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : Colors.black)),
                                     /*DropdownButton(
                                       value: runMode,
                                       items: runModeList
@@ -606,41 +638,41 @@ class _MainPageState extends State<MainPage> {
 
                               // 차압 및 전류 정보
                               Row(
-                                spacing: 3,
+                                spacing: 2,
                                 children: [
                                   // 차압 및 펄스 설정
                                   Container(
-                                    width: screenWidth * 0.5,
-                                    height: isPortrait ? screenHeight * 0.15 : screenHeight * 0.4,
-                                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
+                                    width: screenWidth * 0.6,
+                                    height: isPortrait ? screenHeight * 0.15 : screenHeight * 0.18,
+                                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                                     decoration: BoxDecoration(
                                       border:Border.all(color: motorStatus ? Colors.white : AppColor.duBlue)
                                     ),
                                     child:
                                       Column(
-                                      spacing: 5,
+                                      //spacing: 0.05,
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.end,
                                           children: [
                                             Icon(Icons.circle,
-                                                size: 14,
+                                                size: 12,
                                                 color: pulseColor),
                                             SizedBox(width: 5,),
                                             Text(pulseStatus, style:TextStyle(fontSize: 12, fontWeight: FontWeight.w100 ,color: motorStatus ? Colors.white : Colors.black)),
-                                            SizedBox(width: 10,)
+                                            SizedBox(width: 5,)
                                           ],
                                         ),
                                         Row(
-                                          spacing: 10,
-                                          mainAxisAlignment: MainAxisAlignment.start,
+                                          spacing: 0.15,
+                                          mainAxisAlignment: MainAxisAlignment.center,
                                           crossAxisAlignment: CrossAxisAlignment.baseline,
                                           textBaseline: TextBaseline.alphabetic,
                                           children: [
                                             const SizedBox(width: 5),
-                                            Text("$diffPressure", style: TextStyle(fontFamily: "Digital", fontSize: 50, color: motorStatus ? Colors.white : AppColor.duBlue),),
-                                            Text("mmAq", style: TextStyle(fontSize:14, fontWeight: FontWeight.w500, color: motorStatus ? Colors.white : AppColor.duBlue))
+                                            Text("$diffPressure", style: TextStyle(fontFamily: "Digital", fontSize: 55, color: motorStatus ? Colors.white : AppColor.duBlue),),
+                                            Text("mmAq", style: TextStyle(fontSize:15, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : AppColor.duBlue))
                                           ],
                                         ),
                                       ],
@@ -649,9 +681,9 @@ class _MainPageState extends State<MainPage> {
 
                                   // 전류
                                   Container(
-                                    width: screenWidth * 0.25,
-                                    height: isPortrait ? screenHeight * 0.15 : screenHeight * 0.4,
-                                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 20),
+                                    width: screenWidth * 0.3,
+                                    height: isPortrait ? screenHeight * 0.15 : screenHeight * 0.18,
+                                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                                     decoration: BoxDecoration(
                                         border:Border.all(color: motorStatus ? Colors.white : AppColor.duBlue)
                                     ),
@@ -664,7 +696,7 @@ class _MainPageState extends State<MainPage> {
                                           crossAxisAlignment: CrossAxisAlignment.end,
                                           textBaseline: TextBaseline.alphabetic,
                                           children: [
-                                            Text("$power1", style: TextStyle(fontFamily: "Digital", fontSize: 35, color: motorStatus ? Colors.white : AppColor.duBlue),),
+                                            Text("$power1", style: TextStyle(fontFamily: "Digital", fontSize: 32, color: motorStatus ? Colors.white : AppColor.duBlue),),
                                             Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : AppColor.duBlue))
                                           ],
                                         ),
@@ -673,7 +705,7 @@ class _MainPageState extends State<MainPage> {
                                           crossAxisAlignment: CrossAxisAlignment.end,
                                           textBaseline: TextBaseline.alphabetic,
                                           children: [
-                                            Text("$power2", style: TextStyle(fontFamily: "Digital", fontSize: 35, color: motorStatus ? Colors.white : AppColor.duBlue),),
+                                            Text("$power2", style: TextStyle(fontFamily: "Digital", fontSize: 32, color: motorStatus ? Colors.white : AppColor.duBlue),),
                                             Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : AppColor.duBlue))
                                           ],
                                         ),
@@ -683,34 +715,92 @@ class _MainPageState extends State<MainPage> {
                                 ],
                               ),
 
-                              // 주파수 및 펄싱
+                              // 팬 운전 주파수 및 펄싱
                               Row(
+                               spacing: 5,
                                 mainAxisAlignment: MainAxisAlignment.start,
+                                //crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Container(
-                                    width: screenWidth * 0.38,
-                                    height: isPortrait ? screenHeight * 0.1 : screenHeight * 0.3,
-                                    decoration: BoxDecoration(border: Border.all(color: AppColor.duBlue, width: 1)),
+                                    width: screenWidth * 0.2,
+                                    height: isPortrait ? screenHeight * 0.1 : screenHeight * 0.15,
+                                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                                    //decoration: BoxDecoration(color: Colors.white),
                                     child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        Image.asset('assets/images/Fan_1.gif', width: 100),
+                                        Image.asset('assets/images/fan_on.gif', width: 60,
+                                          color: motorStatus? Colors.white : AppColor.duBlue,
+                                          colorBlendMode: BlendMode.srcIn,), //on
+                                        //Image.asset('assets/images/Fan_1.gif', width: 60,), // off
+
                                       ],
                                     ),
                                   ),
+                                  //주파수 표시
                                   Container(
-                                    width: screenWidth * 0.38,
-                                    height: isPortrait ? screenHeight * 0.1 : screenHeight * 0.3,
-                                    decoration: BoxDecoration(border: Border.all(color: AppColor.duBlue, width: 1)),
+                                    width: screenWidth * 0.22,
+                                    height: isPortrait ? screenHeight * 0.1 : screenHeight * 0.15,
+                                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text("운전 주파수", style: TextStyle(fontSize: 12, color: motorStatus ? Colors.white : AppColor.duBlue),),
+
+                                        Text(" $fanFreq Hz", style: TextStyle(fontSize: 12, color: motorStatus ? Colors.white : AppColor.duBlue),)
+                                      ],
+                                    ),
+
                                   ),
+                                  Container(
+                                    width: screenWidth * 0.2,
+                                    height: isPortrait ? screenHeight * 0.1 : screenHeight * 0.15,
+                                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                                    //decoration: BoxDecoration(color: Colors.white),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.start,
+                                      children: [
+
+                                        Image.asset('assets/images/c_filter_on.gif', width: 68,
+                                          color: motorStatus? Colors.white : AppColor.duBlue,
+                                          colorBlendMode: BlendMode.srcIn,), //on
+                                        //Image.asset('assets/images/c_filter_off.png', width: 60,), //off
+
+
+                                      ],
+                                  ),
+                                 ),
+
+                              //펄싱 정보 표시
+                              Container(
+                                width: screenWidth * 0.22,
+                                height: isPortrait ? screenHeight * 0.1 : screenHeight * 0.15,
+                                margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                                child: Column(
+                                  //mainAxisAlignment: MainAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    //#27 자동 펄싱 동작 개시 차압값
+                                    Text("펄싱 차압   $pulseDiff mmAq", style: TextStyle(fontSize: 11, color: motorStatus ? Colors.white : AppColor.duBlue),),
+                                    //#33 솔밸브 갯수
+                                    Text("솔밸브 갯수   $solCount 개", style: TextStyle(fontSize: 11, color: motorStatus ? Colors.white : AppColor.duBlue),)
+                                  ],
+                                ),
+
+                              ),
                                 ],
                               ),
+
                               // 운전 시작 버튼
                               Row(
-                                spacing: 10,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                //crossAxisAlignment: CrossAxisAlignment.start,
+                                spacing: 50,
                                 children: [
                                   SizedBox(
-                                    width: screenWidth * 0.55,
-                                    height: isPortrait ? screenHeight * 0.065 : screenHeight * 0.15,
+                                    width: screenWidth * 0.5,
+                                    height: isPortrait ? screenHeight * 0.05 : screenHeight * 0.12,
+
                                     child:
                                       ElevatedButton(
                                         onPressed: _toggleRun,
@@ -718,7 +808,7 @@ class _MainPageState extends State<MainPage> {
                                           backgroundColor: motorStatus ? Colors.white : AppColor.duBlue,
                                           shadowColor: Colors.black,
                                           elevation: 2,
-                                          textStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 20),
+                                          textStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 16),
                                         ),
                                         child: Column(
                                           mainAxisSize: MainAxisSize.min,
@@ -745,8 +835,8 @@ class _MainPageState extends State<MainPage> {
                                   ),
                                   // 부저 정지 버튼
                                   Container(
-                                    width: screenWidth * 0.15,
-                                    height: isPortrait ? screenHeight * 0.065 : screenHeight * 0.15,
+                                    width: screenWidth * 0.12,
+                                    height: isPortrait ? screenHeight * 0.05 : screenHeight * 0.12,
                                     decoration: BoxDecoration(
                                       color: motorStatus ? Colors.white : AppColor.duBlue,
                                       borderRadius: BorderRadius.circular(25),
@@ -795,6 +885,37 @@ class _MainPageState extends State<MainPage> {
                         ],
                       ),
                   ),
+              ),
+
+              // 필터 정보 표시
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.01),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child:
+                Padding(
+                  padding: EdgeInsetsGeometry.fromLTRB(0, 15, 0, 15),
+                  child:
+                  Row(
+                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    spacing: 5,
+                    //
+                    children: [
+                      Text("필터 사용시간 : $filterTime", style: TextStyle(fontSize: 12),),
+
+                      Text("필터 교체횟수 : $filterCount", style: TextStyle(fontSize:12),)
+                    ],
+                  ),
+                ),
               ),
 
 

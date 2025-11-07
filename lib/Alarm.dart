@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:duclean/res/Constants.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
 
 const String _kAlarmCodeKey = 'alarm_current_code';
 const String _kAlarmDateKey = 'alarm_current_date_ms';
@@ -84,13 +86,63 @@ class AlarmPage extends StatefulWidget {
   State<AlarmPage> createState() => _AlarmPageState();
 }
 
+
+
 class _AlarmPageState extends State<AlarmPage> {
   late Stream<_LoadedData> _stream;
+
+  final String broker = "broker.hivemq.com";     // MQTT broker address
+  final int port = 1883;                 // MQTT broker port
+  final String topic = "alarm";           // MQTT topic
+
+  MqttServerClient? client;
+  bool connected = false;
 
   @override
   void initState() {
     super.initState();
     _stream = _alarmStream(); // 페이지가 보이는 동안 1초 주기로 새로고침
+    setupMqtt();
+  }
+
+  Future<void> setupMqtt() async {
+    // MQTT 브로커 연결
+    client = MqttServerClient.withPort(broker, 'flutter_client', port);
+    // MQTT 로그 출력
+    client!.logging(on: false);
+
+    // 리스너 등록
+    client!.onConnected = onMqttConnected;
+    // client!.onDisconnected = onMqttDisconnected;
+    // client!.onSubscribed = onSubscribed;
+
+    try {
+      //
+      await client!.connect();
+    } catch (e) {
+      print('Connected Failed.. \nException: $e');
+    }
+  }
+
+  void onMqttConnected() {
+    print(':: MqttConnected');
+    setState(() {
+      connected = true;
+      // MQTT 연결 시 토픽 구독.
+      client!.subscribe(topic, MqttQos.atLeastOnce);
+
+      // 토픽 수신 리스너
+      client!.updates!.listen((List<MqttReceivedMessage<MqttMessage>> c) {
+        final MqttPublishMessage recMess = c[0].payload as MqttPublishMessage;
+        final String message =
+        MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
+
+        // 수신한 메시지 처리
+        setState(() {
+          print(':: Received message: $message');
+        });
+      });
+    });
   }
 
   // 1초마다 SharedPreferences를 다시 읽음
@@ -272,18 +324,18 @@ class _AlarmPageState extends State<AlarmPage> {
                             Text(
                               _resolveDeviceName(context) ?? _defaultDeviceName,
                               style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
                                 color: isCleared ? Colors.grey : AppColor.duBlue,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text("발생 시각: $occurredText",
-                                style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                            Text("발생: $occurredText",
+                                style: const TextStyle(fontSize: 11, color: Colors.grey)),
                             if (isCleared) ...[
                               const SizedBox(height: 2),
-                              Text("해제 시각: $clearedText",
-                                  style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                              Text("해제: $clearedText",
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
                             ],
                           ],
                         ),
@@ -291,9 +343,9 @@ class _AlarmPageState extends State<AlarmPage> {
                       // 오른쪽: 알람 메시지
                       Text( msg,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: isCleared ? Colors.grey : Colors.black,
+                          color: isCleared ? Colors.grey : Colors.redAccent,
                         ),
                       ),
                     ],
