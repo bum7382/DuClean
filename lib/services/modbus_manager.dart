@@ -1,246 +1,118 @@
+// lib/services/modbus_manager.dart
 import 'dart:async';
-import 'dart:collection';
-import 'package:modbus_client/modbus_client.dart';
+import 'package:flutter/widgets.dart';
 import 'package:modbus_client_tcp/modbus_client_tcp.dart';
+import 'package:modbus_client/modbus_client.dart';
+import 'package:provider/provider.dart';
+import '../providers/selected_device.dart'; // ConnectionRegistry
 
-// 모드버스 연결을 해당 파일로 이동할 예정입니다. (미완성)
-
-// 모드버스 연결
-class DeviceKey {
-  final String host;  // 기기 주소
-  final int unitId; // Unit ID
-  final String name;  // 기기 명
-
-  const DeviceKey({
-    required this.host,
-    required this.unitId,
-    required this.name,
-  });
-
-  String get id => '$host#$unitId';
-
-  @override
-  bool operator ==(Object other) =>
-      other is DeviceKey && host == other.host && unitId == other.unitId;
-
-  @override
-  int get hashCode => Object.hash(host, unitId);
-}
-
-/// 기기 하나에 대한 실제 Modbus TCP 연결/폴링/스트림 래퍼
-class _ModbusService {
-  _ModbusService(
-      this.key, {
-        this.inputCount = 70,
-        this.period = const Duration(seconds: 1),
-      }) : _inputsGroup = ModbusElementsGroup(
-    List.generate(
-      inputCount,
-          (i) => ModbusUint16Register(
-        name: 'in_$i',
-        type: ModbusElementType.inputRegister,
-        address: i,
-      ),
-    ),
-  );
-
-  final DeviceKey key;
-  final int inputCount;
-  Duration period;
-
-  ModbusClientTcp? _client;
-  Timer? _poller;
-
-  // 입력값 스냅샷 (index -> value)
-  final Map<int, int> _inputs = <int, int>{};
-  UnmodifiableMapView<int, int> get snapshot => UnmodifiableMapView(_inputs);
-
-  // 값 스트림
-  final _inputsCtrl =
-  StreamController<UnmodifiableMapView<int, int>>.broadcast();
-  Stream<UnmodifiableMapView<int, int>> get stream => _inputsCtrl.stream;
-
-  // 연결 상태 스트림(옵션)
-  final _connCtrl = StreamController<bool>.broadcast();
-  Stream<bool> get connectionStream => _connCtrl.stream;
-  bool get isConnected => _client?.isConnected ?? false;
-
-  final ModbusElementsGroup _inputsGroup;
-
-  Future<void> start() async {
-    await _ensureConnected();
-    _startPolling();
-  }
-
-  Future<void> stop() async {
-    _poller?.cancel();
-    _poller = null;
-    try {
-      await _client?.disconnect();
-    } catch (_) {}
-    _client = null;
-    // 연결 끊김 신호
-    _safeAddConn(false);
-    // 컨트롤러는 재사용할 수 있게 열어둠 (dispose에서만 닫음)
-  }
-
-  Future<void> dispose() async {
-    await stop();
-    await _inputsCtrl.close();
-    await _connCtrl.close();
-  }
-
-  // 단발 읽기/쓰기 (Holding Register)
-  Future<int?> readHolding(int address) async {
-    if (!await _ensureConnected()) return null;
-    final r = ModbusInt16Register(
-      name: 'Holding($address)',
-      type: ModbusElementType.holdingRegister,
-      address: address,
-    );
-    await _client!.send(r.getReadRequest());
-    return r.value?.toInt();
-  }
-
-  Future<bool> writeHolding(int address, int value) async {
-    if (!await _ensureConnected()) return false;
-    final r = ModbusInt16Register(
-      name: 'Holding($address)',
-      type: ModbusElementType.holdingRegister,
-      address: address,
-    );
-    await _client!.send(r.getWriteRequest(value));
-    return true;
-  }
-
-  // 내부: 폴링 시작
-  void _startPolling() {
-    _poller?.cancel();
-    _poller = Timer.periodic(period, (_) async {
-      if (!await _ensureConnected()) return;
-      try {
-        await _client!.send(_inputsGroup.getReadRequest());
-        bool changed = false;
-        for (int i = 0; i < inputCount; i++) {
-          final v =
-              (_inputsGroup[i] as ModbusUint16Register).value?.toInt() ?? 0;
-          if (_inputs[i] != v) {
-            _inputs[i] = v;
-            changed = true;
-          }
-        }
-        if (changed) {
-          _inputsCtrl.add(UnmodifiableMapView(_inputs));
-        }
-      } catch (_) {
-        // 다음 틱에서 재시도
-      }
-    });
-  }
-
-  Future<bool> _ensureConnected() async {
-    if (_client != null && _client!.isConnected) {
-      _safeAddConn(true);
-      return true;
-    }
-    try {
-      await _client?.disconnect();
-    } catch (_) {}
-
-    try {
-      final c = ModbusClientTcp(key.host, unitId: key.unitId);
-      await c.connect();
-      _client = c;
-      _safeAddConn(true);
-      return true;
-    } catch (_) {
-      _client = null;
-      _safeAddConn(false);
-      return false;
-    }
-  }
-
-  void _safeAddConn(bool v) {
-    if (!_connCtrl.isClosed) {
-      _connCtrl.add(v);
-    }
-  }
-}
-
-/// 여러 기기를 Map으로 관리
 class ModbusManager {
   ModbusManager._();
   static final ModbusManager instance = ModbusManager._();
 
-  final _map = <String, _ModbusService>{}; // id -> service
+  final Map<String, ModbusClientTcp> _clients = {}; // key: host#unitId
+  String _key(String host, int unitId) => '$host#$unitId';
 
-  bool has(DeviceKey key) => _map.containsKey(key.id);
-
-  bool isConnected(DeviceKey key) => _map[key.id]?.isConnected ?? false;
-
-  Stream<bool>? connectionStream(DeviceKey key) => _map[key.id]?.connectionStream;
-
-  /// 서비스 가져오기(없으면 생성) + 시작
-  Future<_ModbusService> get(
-      DeviceKey key, {
-        int inputCount = 70,
-        Duration pollInterval = const Duration(seconds: 1),
-      }) async {
-    var svc = _map[key.id];
-    if (svc == null) {
-      svc = _ModbusService(
-        key,
-        inputCount: inputCount,
-        period: pollInterval,
-      );
-      _map[key.id] = svc;
-    } else {
-      // 이미 존재하면 주기만 업데이트 가능
-      svc.period = pollInterval;
-    }
-    await svc.start();
-    return svc;
+  Future<ModbusClientTcp?> _connect(String host, int unitId) async {
+    final c = ModbusClientTcp(host, unitId: unitId);
+    await c.connect(); // TCP 소켓 연결
+    return c;
   }
 
-  Future<void> dispose(DeviceKey key) async {
-    final svc = _map.remove(key.id);
-    if (svc != null) {
-      await svc.dispose();
-    }
-  }
-
-  Future<void> disposeAll() async {
-    for (final s in _map.values) {
-      await s.dispose();
-    }
-    _map.clear();
-  }
-
-  /// 단발 헬퍼
-  Future<int?> readHolding(DeviceKey key, int address) async {
-    final svc = await get(key);
-    return svc.readHolding(address);
-  }
-
-  Future<bool> writeHolding(DeviceKey key, int address, int value) async {
-    final svc = await get(key);
-    return svc.writeHolding(address, value);
-  }
-
-  /// 입력값 스트림 구독
-  Future<StreamSubscription<UnmodifiableMapView<int, int>>> listenInputs(
-      DeviceKey key,
-      void Function(UnmodifiableMapView<int, int>) onData, {
-        Function? onError,
-        void Function()? onDone,
-        bool? cancelOnError,
-      }) async {
-    final svc = await get(key);
-    return svc.stream.listen(
-      onData,
-      onError: onError,
-      onDone: onDone,
-      cancelOnError: cancelOnError,
+  // ✅ 헬스 체크: Holding Register #1 한 번 읽어서 슬레이브 응답 확인
+  Future<bool> _ping(ModbusClientTcp c, {int address = 1, Duration timeout = const Duration(milliseconds: 600)}) async {
+    final reg = ModbusInt16Register(
+      name: 'ping($address)',
+      type: ModbusElementType.holdingRegister, // FC03
+      address: address,
     );
+    try {
+      await c.send(reg.getReadRequest()).timeout(timeout);
+      return reg.value != null; // 값 도착해야 OK
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 🔗 연결 보장 + 헬스 체크. 슬레이브 응답까지 확인된 경우에만 connected로 마킹
+  Future<ModbusClientTcp> ensureConnected(
+      BuildContext context, {
+        required String host,
+        required int unitId,
+        int verifyAddress = 1, // 기본: #1 읽기
+      }) async {
+    final k = _key(host, unitId);
+
+    // 1) 재사용 가능한 기존 소켓이 있으면 먼저 핑으로 검증
+    final cur = _clients[k];
+    if (cur != null && cur.isConnected) {
+      final ok = await _ping(cur, address: verifyAddress);
+      if (ok) {
+        context.read<ConnectionRegistry>().markConnected(host, unitId);
+        return cur;
+      } else {
+        // 끊고 새로 시도
+        try { await cur.disconnect(); } catch (_) {}
+        _clients.remove(k);
+        context.read<ConnectionRegistry>().markDisconnected(host, unitId);
+      }
+    }
+
+    // 2) 새로 연결
+    final nc = await _connect(host, unitId);
+
+    // 3) 헬스 체크 통과 시에만 connected 표시
+    final healthy = await _ping(nc!, address: verifyAddress);
+    if (healthy) {
+      _clients[k] = nc;
+      context.read<ConnectionRegistry>().markConnected(host, unitId);
+      return nc;
+    } else {
+      // 응답 없음 → 정리 후 예외
+      try { await nc.disconnect(); } catch (_) {}
+      _clients.remove(k);
+      context.read<ConnectionRegistry>().markDisconnected(host, unitId);
+      throw Exception('Modbus slave not responding (host=$host, unitId=$unitId)');
+    }
+  }
+
+  Future<void> disconnect(BuildContext context, {required String host, required int unitId}) async {
+    final k = _key(host, unitId);
+    try { await _clients[k]?.disconnect(); } catch (_) {}
+    _clients.remove(k);
+    context.read<ConnectionRegistry>().markDisconnected(host, unitId);
+  }
+
+  Future<int?> readHolding(
+      BuildContext context, {
+        required String host,
+        required int unitId,
+        required int address,
+      }) async {
+    final c = await ensureConnected(context, host: host, unitId: unitId);
+    final reg = ModbusInt16Register(
+      name: "Holding($address)",
+      type: ModbusElementType.holdingRegister, // FC03
+      address: address,
+    );
+    await c.send(reg.getReadRequest());
+    return reg.value?.toInt();
+  }
+
+  Future<bool> writeHolding(
+      BuildContext context, {
+        required String host,
+        required int unitId,
+        required int address,
+        required int value,
+      }) async {
+    final c = await ensureConnected(context, host: host, unitId: unitId);
+    final reg = ModbusInt16Register(
+      name: "Holding($address)",
+      type: ModbusElementType.holdingRegister, // FC06
+      address: address,
+    );
+    await c.send(reg.getWriteRequest(value));
+    return true;
   }
 }

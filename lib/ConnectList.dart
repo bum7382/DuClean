@@ -1,15 +1,14 @@
-import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
 import 'services/modbus_manager.dart';
-import '/routes.dart';
-import 'res/Constants.dart';
-import 'package:duclean/res/Constants.dart';
-
-// 연결 부분과 관련하여 처리되지 않았습니다.메뉴 프로토타입입니다. (미완성)
+import 'routes.dart';
+import 'package:duclean/res/Constants.dart';            // AppColor, DeviceKey 등
+import '../providers/selected_device.dart';             // SelectedDevice, ConnectionRegistry
+import '../models/device_info.dart';
+import 'package:duclean/common/context_extensions.dart'; // screenWidth/Height 확장
 
 const String _kDevicesStoreKey = 'modbus_devices_v1';
 
@@ -21,7 +20,7 @@ class ConnectListPage extends StatefulWidget {
 }
 
 class _ConnectListPageState extends State<ConnectListPage> {
-  List<DeviceKey> _items = [];  // 저장된 기기
+  List<DeviceKey> _items = []; // 저장된 기기
   bool _loading = true;
 
   @override
@@ -35,7 +34,6 @@ class _ConnectListPageState extends State<ConnectListPage> {
     final raw = prefs.getStringList(_kDevicesStoreKey);
 
     if (raw == null || raw.isEmpty) {
-      // 기본값 한 개
       _items = const [
         DeviceKey(host: '192.168.10.190', unitId: 1, name: 'AP-500'),
       ];
@@ -66,11 +64,31 @@ class _ConnectListPageState extends State<ConnectListPage> {
     await prefs.setStringList(_kDevicesStoreKey, toSave);
   }
 
-  void _openMain(DeviceKey d) {
-    Navigator.of(context).pushNamed(
-      Routes.deviceMain,
-      arguments: {'host': d.host, 'unitId': d.unitId, 'name': d.name},
+  // 설정: 선택 저장 → 설정 페이지로 이동
+  void _openSetting(DeviceKey d) {
+    context.read<SelectedDevice>().select(
+      DeviceInfo(name: d.name, address: d.host, unitId: d.unitId),
     );
+    Navigator.of(context).pushNamed(Routes.connectSettingPage);
+  }
+
+  // 메인: 선택 → 연결 여부 확인(Registry 기준) → 이동
+  void _openMain(DeviceKey d) {
+    // 선택 동기화(메인에서 Provider로 읽음)
+    context.read<SelectedDevice>().select(
+      DeviceInfo(name: d.name, address: d.host, unitId: d.unitId),
+    );
+
+    final isConnected = context.read<ConnectionRegistry>()
+        .stateOf(d.host, d.unitId).connected;
+
+    if (!isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('기기에 연결되어 있지 않습니다. 설정에서 연결 후 접속하세요.')),
+      );
+      return;
+    }
+    Navigator.of(context).pushNamed(Routes.mainPage);
   }
 
   Future<void> _addDevice() async {
@@ -78,15 +96,13 @@ class _ConnectListPageState extends State<ConnectListPage> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _DeviceEditSheet(),
+      builder: (_) => const _DeviceEditSheet(),
     );
     if (result != null) {
-      // 중복(host+unitId) 방지
       final exists = _items.any((e) => e.host == result.host && e.unitId == result.unitId);
       if (exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('같은 Host/UnitID 장비가 이미 있습니다.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('같은 Host/UnitID 장비가 이미 있습니다.')));
         return;
       }
       setState(() => _items.add(result));
@@ -103,13 +119,12 @@ class _ConnectListPageState extends State<ConnectListPage> {
       builder: (_) => _DeviceEditSheet(initial: d),
     );
     if (result != null) {
-      // 다른 항목과의 중복 체크
-      final exists = _items.asMap().entries.any((e) =>
-      e.key != index && e.value.host == result.host && e.value.unitId == result.unitId);
+      final exists = _items.asMap().entries.any(
+            (e) => e.key != index && e.value.host == result.host && e.value.unitId == result.unitId,
+      );
       if (exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('같은 Host/UnitID 장비가 이미 있습니다.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('같은 Host/UnitID 장비가 이미 있습니다.')));
         return;
       }
       setState(() => _items[index] = result);
@@ -132,8 +147,8 @@ class _ConnectListPageState extends State<ConnectListPage> {
     );
     if (ok != true) return;
 
-    // 연결 중이면 끊기
-    await ModbusManager.instance.dispose(d);
+    // 연결되어 있었다면 끊고 레지스트리 갱신까지 내부에서 처리
+    await ModbusManager.instance.disconnect(context, host: d.host, unitId: d.unitId);
 
     setState(() => _items.removeAt(index));
     await _saveDevices();
@@ -143,9 +158,16 @@ class _ConnectListPageState extends State<ConnectListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('기기 목록', style: TextStyle(color: Colors.white)),
+        centerTitle: false,
+        title: const Text(
+          '기기 목록',
+          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         backgroundColor: AppColor.duBlue,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addDevice,
@@ -172,13 +194,13 @@ class _ConnectListPageState extends State<ConnectListPage> {
               child: const Icon(Icons.delete, color: Colors.white),
             ),
             confirmDismiss: (_) async {
-              // 삭제 확인
               await _deleteDevice(i);
-              return false; // 내부에서 삭제 처리했으므로 ListView가 중복 삭제하지 않게 false
+              return false;
             },
             child: _DeviceTile(
               device: d,
               onOpen: () => _openMain(d),
+              onSetting: () => _openSetting(d),
               onEdit: () => _editDevice(i),
               onDelete: () => _deleteDevice(i),
             ),
@@ -189,82 +211,65 @@ class _ConnectListPageState extends State<ConnectListPage> {
   }
 }
 
-/// 단일 장비 타일 (연결 상태 구독 + 액션 버튼들)
-class _DeviceTile extends StatefulWidget {
+/// 단일 장비 타일 (Registry 구독으로 연결상태 표시)
+class _DeviceTile extends StatelessWidget {
   const _DeviceTile({
     required this.device,
     required this.onOpen,
+    required this.onSetting,
     required this.onEdit,
     required this.onDelete,
   });
 
   final DeviceKey device;
   final VoidCallback onOpen;
+  final VoidCallback onSetting;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
-  State<_DeviceTile> createState() => _DeviceTileState();
-}
-
-class _DeviceTileState extends State<_DeviceTile> {
-  bool _connected = false;
-  StreamSubscription<bool>? _connSub;
-
-  @override
-  void initState() {
-    super.initState();
-    _connected = ModbusManager.instance.isConnected(widget.device);
-    _connSub = ModbusManager.instance.connectionStream(widget.device)?.listen((v) {
-      if (!mounted) return;
-      setState(() => _connected = v);
-    });
-  }
-
-  @override
-  void dispose() {
-    _connSub?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final d = widget.device;
+    final w = context.screenWidth;
+    final d = device;
+
+    // connected 값만 구독(리빌드 최소화)
+    final connected = context.select<ConnectionRegistry, bool>(
+          (r) => r.stateOf(d.host, d.unitId).connected,
+    );
+
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-      leading: CircleAvatar(
-        backgroundColor: _connected ? Colors.green : Colors.grey,
-        child: const Icon(Icons.memory, color: Colors.white),
+      leading: Image.asset(
+        connected ? "assets/images/logo_color.png" : "assets/images/logo_black.png",
+        width: w * 0.1,
       ),
       title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
-      subtitle: Text('${d.host} Unit ID : ${d.unitId}', style: TextStyle(fontWeight: FontWeight.w200, fontSize: 12),),
+      subtitle: Text(
+        '${d.host} Unit ID : ${d.unitId}',
+        style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 12),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             tooltip: '수정',
             icon: const Icon(Icons.edit, color: Colors.grey),
-            onPressed: widget.onEdit,
+            onPressed: onEdit,
           ),
-          const SizedBox(width: 1),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColor.duBlue,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            ),
-            onPressed: widget.onOpen,
-            child: const Text('열기'),
+          IconButton(
+            tooltip: '설정',
+            icon: const Icon(Icons.settings, color: Colors.grey),
+            onPressed: onSetting,
           ),
           PopupMenuButton<String>(
             onSelected: (v) async {
               if (v == 'disconnect') {
-                await ModbusManager.instance.dispose(d);
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('연결 해제됨')),
-                );
+                await ModbusManager.instance.disconnect(context, host: d.host, unitId: d.unitId);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('연결 해제됨')));
               } else if (v == 'delete') {
-                widget.onDelete();
+                onDelete();
               }
             },
             itemBuilder: (_) => const [
@@ -274,12 +279,12 @@ class _DeviceTileState extends State<_DeviceTile> {
           ),
         ],
       ),
-      onTap: widget.onOpen,
+      onTap: onOpen,
     );
   }
 }
 
-/// 추가/수정 공용 바텀시트
+/// 추가/수정 바텀시트
 class _DeviceEditSheet extends StatefulWidget {
   const _DeviceEditSheet({this.initial});
 
@@ -316,11 +321,13 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
     final unit = int.tryParse(_unit.text.trim()) ?? 1;
 
     if (host.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Host는 필수입니다.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Host는 필수입니다.')));
       return;
     }
     if (unit < 0 || unit > 247) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('UnitID는 0~247 범위로 입력하세요.')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('UnitID는 0~247 범위로 입력하세요.')));
       return;
     }
 
@@ -331,6 +338,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
   Widget build(BuildContext context) {
     final isEdit = widget.initial != null;
     final insets = MediaQuery.of(context).viewInsets;
+
     return Padding(
       padding: EdgeInsets.only(bottom: insets.bottom),
       child: Container(

@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:duclean/res/Constants.dart';
-import 'package:mqtt_client/mqtt_client.dart';
-import 'package:mqtt_client/mqtt_server_client.dart';
+// import 'package:mqtt_client/mqtt_client.dart';
+// import 'package:mqtt_client/mqtt_server_client.dart';
 
 const String _kAlarmCodeKey = 'alarm_current_code';
 const String _kAlarmDateKey = 'alarm_current_date_ms';
@@ -29,6 +29,7 @@ String _alarmMessage(int code) {
   }
 }
 
+
 String _formatKTime(DateTime ts) {
   final d = ts.toLocal();
   final am = d.hour < 12 ? '오전' : '오후';
@@ -36,6 +37,7 @@ String _formatKTime(DateTime ts) {
   final mm = d.minute.toString().padLeft(2, '0');
   return '${d.month}월 ${d.day}일 $am ${h12}시 ${mm}분';
 }
+
 
 class _AlarmEntry {
   final int code;          // 발생 코드(1~7)
@@ -91,20 +93,23 @@ class AlarmPage extends StatefulWidget {
 class _AlarmPageState extends State<AlarmPage> {
   late Stream<_LoadedData> _stream;
 
+  /*
   final String broker = "broker.hivemq.com";     // MQTT broker address
   final int port = 1883;                 // MQTT broker port
   final String topic = "alarm";           // MQTT topic
 
   MqttServerClient? client;
   bool connected = false;
+  */
 
   @override
   void initState() {
     super.initState();
     _stream = _alarmStream(); // 페이지가 보이는 동안 1초 주기로 새로고침
-    setupMqtt();
+    // setupMqtt();
   }
 
+  /*
   Future<void> setupMqtt() async {
     // MQTT 브로커 연결
     client = MqttServerClient.withPort(broker, 'flutter_client', port);
@@ -144,6 +149,8 @@ class _AlarmPageState extends State<AlarmPage> {
       });
     });
   }
+  */
+
 
   // 1초마다 SharedPreferences를 다시 읽음
   Stream<_LoadedData> _alarmStream() async* {
@@ -249,7 +256,7 @@ class _AlarmPageState extends State<AlarmPage> {
     return Scaffold(
       backgroundColor: AppColor.bg,
       appBar: AppBar(
-        centerTitle: true,
+        centerTitle: false,
         title: const Text('알람 내역',
             style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
         leading: IconButton(

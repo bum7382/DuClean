@@ -4,23 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:duclean/res/Constants.dart';
+import 'package:provider/provider.dart';
+import 'providers/selected_device.dart';
 import 'dart:math';
 
-/*
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // 가로모드만 허용
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-
-  runApp(const MyApp());
-}*/
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SelectedDevice()),
+        ChangeNotifierProvider(create: (_) => ConnectionRegistry()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 // 앱
@@ -43,42 +41,6 @@ class MyApp extends StatelessWidget {
 // 메인 화면
 class IntroPage extends StatelessWidget {
   const IntroPage({super.key});
-
-  // 페이지 이동 함수 - 현재 사용 안 함
-  /*
-  void navigateToPage(BuildContext context, String pageLabel) {
-    Widget page;  // 이동할 페이지
-
-    switch (pageLabel) {
-      case 'FAN TEST':
-        //page = const FanTestPage();
-        page = const MainPage();
-        break;
-      case 'SOL TEST':
-        //page = const SolTestPage();
-        page = const MainPage();
-        break;
-      case 'SETTING':
-        page = const MainPage();
-        break;
-      case 'STATE':
-        //page = const StatePage();
-        page = const MainPage();
-        break;
-      case 'INFO':
-        page = const MainPage();
-        //page = const InfoPage();
-        break;
-      default:
-        page = Scaffold(
-          appBar: AppBar(title: const Text('Error')),
-          body: const Center(child: Text('Page not found!')),
-        );
-        break;
-    }
-    Navigator.push(context, MaterialPageRoute(builder: (context) => page));
-  }
-  */
 
   @override
   Widget build(BuildContext context) {
@@ -119,23 +81,22 @@ class IntroPage extends StatelessWidget {
               children: [
                 SizedBox(height: 100,),
                 Text("Your Standard,\nDUCLEAN",style:
-                  TextStyle(fontSize: 30, fontWeight: FontWeight.w700,color: AppColor.duBlue),
-                            textAlign: TextAlign.center,),
+                TextStyle(fontSize: 30, fontWeight: FontWeight.w700,color: AppColor.duBlue),
+                  textAlign: TextAlign.center,),
                 // 연결 목록 버튼
                 SizedBox(
                   width: buttonWidth,
                   height: buttonHeight,
                   child: ElevatedButton(
                     onPressed: () {
-                      //Navigator.of(context).pushNamed(Routes.mainPage);
                       Navigator.of(context).pushNamed(Routes.connectListPage);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColor.duBlue,
                       foregroundColor: Colors.white,
                       textStyle: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
