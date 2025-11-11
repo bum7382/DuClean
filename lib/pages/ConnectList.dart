@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
-import 'services/modbus_manager.dart';
-import 'routes.dart';
+import 'package:duclean/services/modbus_manager.dart';
+import '../services/routes.dart';
 import 'package:duclean/res/Constants.dart';            // AppColor, DeviceKey 등
 import '../providers/selected_device.dart';             // SelectedDevice, ConnectionRegistry
 import '../models/device_info.dart';

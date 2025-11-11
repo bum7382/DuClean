@@ -41,6 +41,8 @@ dependencies:
   shared_preferences: ^2.5.3
   mqtt_client: ^10.11.1
   provider: ^6.1.5+1
+  material_symbols_icons: ^4.2874.0
+  settings_ui: ^2.0.2
 
 dev_dependencies:
   flutter_test:

@@ -1,11 +1,11 @@
-import 'package:duclean/Main.dart';
-import 'package:duclean/routes.dart';
+import 'package:duclean/pages/Main.dart';
+import 'package:duclean/services/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/services.dart';
 import 'package:duclean/res/Constants.dart';
 import 'package:provider/provider.dart';
-import 'providers/selected_device.dart';
+import 'package:duclean/providers/selected_device.dart';
 import 'dart:math';
 
 

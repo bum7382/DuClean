@@ -4,14 +4,15 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modbus_client/modbus_client.dart';
 import 'package:modbus_client_tcp/modbus_client_tcp.dart';
 import 'package:provider/provider.dart';
-import '../routes.dart';
+import 'package:duclean/services/routes.dart';
 
 import 'package:duclean/res/Constants.dart';
 import 'package:duclean/common/context_extensions.dart';
-import 'services/modbus_manager.dart';
-import '../providers/selected_device.dart'; // SelectedDevice, ConnectionRegistry
+import 'package:duclean/services/modbus_manager.dart';
+import 'package:duclean/providers/selected_device.dart'; // SelectedDevice, ConnectionRegistry
 
 import 'package:syncfusion_flutter_gauges/gauges.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 
 class MainPage extends StatefulWidget {
@@ -97,6 +98,7 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  int _currentIndex = 0;
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -126,6 +128,7 @@ class _MainPageState extends State<MainPage> {
     ModbusManager.instance.disconnect(context, host: _host, unitId: _unitId);
     super.dispose();
   }
+
 
   // 첫 진입 시 R/W 레지스터 값 읽어서 초기화
   Future<void> _readOnEnter() async {
@@ -159,13 +162,14 @@ class _MainPageState extends State<MainPage> {
         return "펄스 정지";
       case 1:
         pulseColor = Color(0xff4BFC06);
-        return "자동 펄스";
+        return "자동 펄싱";
       case 2:
         pulseColor = Color(0xffF4FD00);
-        return "수동 펄스";
+        if (readRegister(54) == 0) return "수동 펄싱";
+        else return "전자동 펄싱";
       case 3:
         pulseColor = Color(0xff4BFC06);
-        return "추가 펄스";
+        return "추가 펄싱";
       default:
         pulseColor = Color(0xffF71041);
         return "알수없음($code)";
@@ -203,7 +207,7 @@ class _MainPageState extends State<MainPage> {
         final filterUsed   = (_inputs[16] as ModbusUint16Register).value?.toInt() ?? 0;
         final filterChange = (_inputs[17] as ModbusUint16Register).value?.toInt() ?? 0;
 
-        // ✅ 알람은 Registry에 반영(변경시에만 notify)
+        // 알람은 Registry에 반영(변경시에만 notify)
         context.read<ConnectionRegistry>()
             .setAlarmCode(_host, _unitId, curAlarm);
 
@@ -372,7 +376,7 @@ class _MainPageState extends State<MainPage> {
                     Navigator.of(context).pushNamed(
                       Routes.alarmPage,
                       arguments: <String, dynamic>{
-                        'date': alarmAt,           // ← 레지스트리 시각 전달
+                        'date': alarmAt,
                         'name': _deviceName,
                       },
                     );
@@ -458,7 +462,19 @@ class _MainPageState extends State<MainPage> {
           ),
         ),
       ),
-
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: AppColor.duBlue,
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
+        items: [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: '홈'),
+          BottomNavigationBarItem(icon: Icon(Icons.tune), label: '주파수 설정'),
+          BottomNavigationBarItem(icon: Icon(Symbols.valve), label: '펄스 설정'),
+          BottomNavigationBarItem(icon: Icon(Symbols.notification_settings), label: '알람 설정'),
+          BottomNavigationBarItem(icon: Icon(Icons.handyman_outlined), label: '옵션 설정'),
+        ]
+      ),
       body:  Center(
         //child: SingleChildScrollView(
         child: Padding(

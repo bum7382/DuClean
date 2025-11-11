@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/selected_device.dart'; // SelectedDevice & ConnectionRegistry 포함
-import '../routes.dart';
+import 'package:duclean/providers/selected_device.dart'; // SelectedDevice & ConnectionRegistry 포함
+import 'package:duclean/services/routes.dart';
 import 'package:duclean/res/Constants.dart';
 import 'package:duclean/common/context_extensions.dart';
-import 'services/modbus_manager.dart';
+import 'package:duclean/services/modbus_manager.dart';
 
 class ConnectSettingPage extends StatelessWidget {
   const ConnectSettingPage({super.key});

@@ -1,9 +1,10 @@
-import 'package:duclean/Alarm.dart';
-import 'package:duclean/Main.dart';
-import 'package:duclean/ConnectList.dart';
-import 'package:duclean/ConnectSetting.dart';
+import 'package:duclean/pages/Alarm.dart';
+import 'package:duclean/pages/Main.dart';
+import 'package:duclean/pages/ConnectList.dart';
+import 'package:duclean/pages/ConnectSetting.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
 
 class Routes {
   Routes._();
