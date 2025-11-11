@@ -4,10 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 import 'package:duclean/services/modbus_manager.dart';
-import '../services/routes.dart';
+import 'package:duclean/services/routes.dart';
 import 'package:duclean/res/Constants.dart';            // AppColor, DeviceKey 등
-import '../providers/selected_device.dart';             // SelectedDevice, ConnectionRegistry
-import '../models/device_info.dart';
+import 'package:duclean/providers/selected_device.dart';
+import 'package:duclean/models/device_info.dart';
 import 'package:duclean/common/context_extensions.dart'; // screenWidth/Height 확장
 
 const String _kDevicesStoreKey = 'modbus_devices_v1';

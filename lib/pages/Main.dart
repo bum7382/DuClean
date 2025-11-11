@@ -9,10 +9,16 @@ import 'package:duclean/services/routes.dart';
 import 'package:duclean/res/Constants.dart';
 import 'package:duclean/common/context_extensions.dart';
 import 'package:duclean/services/modbus_manager.dart';
-import 'package:duclean/providers/selected_device.dart'; // SelectedDevice, ConnectionRegistry
+import 'package:duclean/providers/selected_device.dart';
+
+import 'package:duclean/pages/setting/AlarmSetting.dart';
+import 'package:duclean/pages/setting/FrequencySetting.dart';
+import 'package:duclean/pages/setting/OptionSetting.dart';
+import 'package:duclean/pages/setting/PulseSetting.dart';
 
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:duclean/services/alarm_store.dart';
 
 
 class MainPage extends StatefulWidget {
@@ -34,6 +40,14 @@ class _MainPageState extends State<MainPage> {
   // 폴링 상태
   ModbusClientTcp? _client;
   Timer? _poller;
+
+  // 폴링 재진입 방지
+  bool _pollingBusy = false;
+  static const Duration _pollInterval = Duration(milliseconds: 1000);
+
+  // 전체(모든 기기) 미해제 알람 배지
+  int _globalAlarmOpenCount = 0;
+  Timer? _alarmBadgeTimer;
 
   // 읽기 그룹: 0~69 입력레지스터(FC04) 읽기
   late final ModbusElementsGroup _inputs;
@@ -79,11 +93,15 @@ class _MainPageState extends State<MainPage> {
 
 // Holding Register(4x)
   final runModeList = ['판넬', '연동', '원격', '통신(RS485)'];  // 동작 설정
-  var runMode = '판넬';
+  var runMode = "";
 
   var fanFreq = 0; // #60 송풍기 가동 주파수
   var pulseDiff = 0; // #27 펄스 작동 차압
   var solCount = 0; // #30 동작 솔 밸브 갯수
+
+  bool _loading = true;
+  int _pollFailCount = 0;
+  static const int _failToShowLoading = 2;
 
 
   @override
@@ -116,16 +134,28 @@ class _MainPageState extends State<MainPage> {
     _deviceName = sel.name;
     _bootStrapped = true;
 
-    _startPolling();
-    _readOnEnter();
+    Future.microtask(() async {
+      // 초기 읽기 먼저
+      await _readOnEnter();
+      // 그 다음 폴링 시작
+      await _startPolling();
+    });
+
+    ModbusManager.instance.startAlarmWatch(host: _host, unitId: _unitId, name: _deviceName);
+    _alarmBadgeTimer?.cancel();
+    _alarmBadgeTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _tickGlobalAlarmCount();
+    });
   }
 
   @override
   void dispose() {
     _poller?.cancel();
     _poller = null;
+    _alarmBadgeTimer?.cancel();
+    _alarmBadgeTimer = null;
     // 연결 해제
-    ModbusManager.instance.disconnect(context, host: _host, unitId: _unitId);
+    // ModbusManager.instance.disconnect(context, host: _host, unitId: _unitId);
     super.dispose();
   }
 
@@ -144,13 +174,29 @@ class _MainPageState extends State<MainPage> {
 
     if (!mounted) return;
     setState(() {
-      runMode = (mode != null && mode >= 0 && mode < runModeList.length)
-          ? runModeList[mode]
-          : '판넬';
+      runMode = (mode != null && mode >= 0 && mode < runModeList.length) ? runModeList[mode] : '';
       fanFreq = freq ?? 0;
       pulseDiff = diff ?? 0;
       solCount = sol ?? 0;
     });
+  }
+
+  Future<void> _tickGlobalAlarmCount() async {
+    // AlarmStore는 최신순으로 반환됨
+    final all = await AlarmStore.loadAllSortedDesc();
+
+    // 기기별 최신 레코드만 본다(이전 미해제 레코드가 남아있어도 중복 집계 방지)
+    final seen = <String, bool>{};
+    var open = 0;
+    for (final e in all) {
+      final key = '${e.host}#${e.unitId}';
+      if (seen.containsKey(key)) continue; // 이미 최신 레코드 반영됨
+      seen[key] = true;
+      if (e.clearedTsMs == null) open++;   // 최신이 미해제면 그 기기는 "알람 진행 중"
+    }
+
+    if (!mounted) return;
+    setState(() => _globalAlarmOpenCount = open);
   }
 
 
@@ -162,14 +208,14 @@ class _MainPageState extends State<MainPage> {
         return "펄스 정지";
       case 1:
         pulseColor = Color(0xff4BFC06);
-        return "자동 펄싱";
+        return "자동 펄스";
       case 2:
         pulseColor = Color(0xffF4FD00);
-        if (readRegister(54) == 0) return "수동 펄싱";
-        else return "전자동 펄싱";
+        final man = (_inputs[54] as ModbusUint16Register).value?.toInt() ?? 0;
+        return man == 0 ? "수동 펄스" : "전자동 펄스";
       case 3:
         pulseColor = Color(0xff4BFC06);
-        return "추가 펄싱";
+        return "추가 펄스";
       default:
         pulseColor = Color(0xffF71041);
         return "알수없음($code)";
@@ -178,18 +224,23 @@ class _MainPageState extends State<MainPage> {
 
   // Read Input Register 함수
   Future<void> _startPolling() async {
-    // 최초 연결 보장
-    _client = await ModbusManager.instance.ensureConnected(
-        context, host: _host, unitId: _unitId);
+    // 최초 1회만 연결 확보(실패하면 throw되어 catch에서 다음 틱에 재시도)
+    _client ??= await ModbusManager.instance.ensureConnected(
+      context, host: _host, unitId: _unitId,
+    );
 
     _poller?.cancel();
-    _poller = Timer.periodic(const Duration(milliseconds: 1000), (_) async {
+    _poller = Timer.periodic(_pollInterval, (_) async {
       if (!mounted) return;
-
+      if (_pollingBusy) return;       // ⬅ 재진입 방지
+      _pollingBusy = true;
       try {
-        // 연결 보장(재연결 포함)
-        _client = await ModbusManager.instance.ensureConnected(
-            context, host: _host, unitId: _unitId);
+        // 연결 확인: 끊겼으면 이 시점에만 재연결 시도
+        if (_client == null || !(_client!.isConnected)) {
+          _client = await ModbusManager.instance.ensureConnected(
+            context, host: _host, unitId: _unitId,
+          );
+        }
 
         await _client!.send(_inputs.getReadRequest());
 
@@ -207,9 +258,7 @@ class _MainPageState extends State<MainPage> {
         final filterUsed   = (_inputs[16] as ModbusUint16Register).value?.toInt() ?? 0;
         final filterChange = (_inputs[17] as ModbusUint16Register).value?.toInt() ?? 0;
 
-        // 알람은 Registry에 반영(변경시에만 notify)
-        context.read<ConnectionRegistry>()
-            .setAlarmCode(_host, _unitId, curAlarm);
+        context.read<ConnectionRegistry>().setAlarmCode(_host, _unitId, curAlarm);
 
         if (!mounted) return;
         setState(() {
@@ -223,13 +272,29 @@ class _MainPageState extends State<MainPage> {
           alarmCount     = alarmCnt;
           filterTime     = filterUsed;
           filterCount    = filterChange;
+          _pollFailCount = 0;
+          _loading = false;
         });
       } catch (e) {
-        // 실패 시 다음 틱에서 재시도(ensureConnected가 재연결 시도)
+        // 실패 시: 로딩 표시 및 다음 틱에서 자동 재시도
+        if (!mounted) return;
+        setState(() {
+          _pollFailCount++;
+          if (_pollFailCount >= _failToShowLoading) {
+            _loading = true;
+          }
+        });
         debugPrint('폴링 실패: $e');
+
+        // 소켓이 비정상일 수 있으므로 다음 틱 전에 정리
+        try { await _client?.disconnect(); } catch (_) {}
+        _client = null;
+      } finally {
+        _pollingBusy = false;
       }
     });
   }
+
 
   Future<bool> writeRegister(int address, int value) {
     return ModbusManager.instance.writeHolding(
@@ -239,71 +304,6 @@ class _MainPageState extends State<MainPage> {
   Future<int?> readRegister(int address) {
     return ModbusManager.instance.readHolding(
         context, host: _host, unitId: _unitId, address: address);
-  }
-
-  // 게이지 그래프 속성
-  Widget _gaugeTile(String title, String valueStr, String unit, double max) {
-    final value = double.tryParse(valueStr) ?? 0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth; // 1/3 칸의 실제 폭
-        final h = w * 0.8;  // 반원 높이
-        final axis = w * 0.13;  // 원 두께
-        final pointer = axis; // 포인터 두께
-        final markerH = w * 0.05;  // 포인터 세로 길이
-        final markerW = w * 0.05;  // 포인터 가로 길이
-        final titleFont = w * 0.10; // 제목
-        final valueFont = w * 0.10; // 값
-        final unitFont = w * 0.075; // 단위
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Column(
-              children: [
-                Text(title, style: TextStyle(fontSize: titleFont, fontWeight: FontWeight.w800, color: AppColor.duBlue)),
-                SizedBox(
-                  height: h,
-                  child: SfRadialGauge(
-                    axes: <RadialAxis>[
-                      RadialAxis(
-                        startAngle: 180,
-                        endAngle: 0,
-                        minimum: 0,
-                        maximum: max,
-                        showLabels: false,
-                        showTicks: false,
-                        axisLineStyle: AxisLineStyle(thickness: axis),
-                        pointers: <GaugePointer>[
-                          RangePointer(
-                            value: value,
-                            color: AppColor.duBlue,
-                            width: axis,
-                          ),
-                        ],
-                        annotations: <GaugeAnnotation>[
-                          GaugeAnnotation(
-                            angle: -90,
-                            positionFactor: 0.1,
-                            widget: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(valueStr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: valueFont, color: AppColor.duBlue)),
-                                Text(unit, style: TextStyle(fontSize: unitFont, color: AppColor.duBlue)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
   }
 
 
@@ -391,13 +391,13 @@ class _MainPageState extends State<MainPage> {
                         Align(
                           alignment: Alignment.center,
                           child: Icon(
-                            alarmCount > 0 ? Icons.notifications_on : Icons.notifications,
+                            _globalAlarmOpenCount > 0 ? Icons.notifications_on : Icons.notifications,
                             size: 30,
-                            color: alarmCount > 0 ? Colors.red : Colors.white,
+                            color: _globalAlarmOpenCount > 0 ? Colors.red : Colors.white,
                           ),
                         ),
                         // 알람 개수
-                        if (alarmCount > 0)
+                        if (_globalAlarmOpenCount > 0)
                           Positioned(
                             right: -2,
                             top: -2,
@@ -410,7 +410,7 @@ class _MainPageState extends State<MainPage> {
                                 border: Border.all(color: Colors.white, width: 1.2),
                               ),
                               child: Text(
-                                alarmCount.toString(),
+                                _globalAlarmOpenCount.toString(),
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   color: Colors.white,
@@ -466,16 +466,114 @@ class _MainPageState extends State<MainPage> {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColor.duBlue,
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+          onTap: (i) async {
+            if (i == _currentIndex) return;
+            setState(() => _currentIndex = i);
+            // 홈(메인) 탭으로 돌아올 때 최신값 재읽기
+            if (i == 0) {
+              await _readOnEnter();
+            }
+          },
         items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: '홈'),
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: '홈'),
           BottomNavigationBarItem(icon: Icon(Icons.tune), label: '주파수 설정'),
           BottomNavigationBarItem(icon: Icon(Symbols.valve), label: '펄스 설정'),
           BottomNavigationBarItem(icon: Icon(Symbols.notification_settings), label: '알람 설정'),
           BottomNavigationBarItem(icon: Icon(Icons.handyman_outlined), label: '옵션 설정'),
         ]
       ),
-      body:  Center(
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _currentIndex,
+            children: [
+              _HomeTab(
+                w: context.screenWidth,
+                h: context.screenHeight,
+                portrait: context.isPortrait,
+                deviceName: _deviceName,
+                diffPressure: diffPressure,
+                power1: power1,
+                power2: power2,
+                operationTime: operationTime,
+                runMode: runMode,
+                fanFreq: fanFreq,
+                pulseDiff: pulseDiff,
+                solCount: solCount,
+                motorStatus: motorStatus,
+                pulseStatus: pulseStatus,
+                pulseColor: pulseColor,
+                alarmCount: alarmCount,
+                filterTime: filterTime,
+                filterCount: filterCount,
+                onToggleRun: _toggleRun,        // MainPage의 함수 전달
+                onToggleBuzzer: _toggleBuzzer,  // MainPage의 함수 전달
+              ),
+              const FrequencySettingPage(),  // 주파수 설정 탭
+              const PulseSettingPage(),      // 펄스 설정 탭
+              AlarmSettingPage(              // 알람 설정 탭
+                readRegister: (addr) => readRegister(addr),
+                writeRegister: (addr, val) => writeRegister(addr, val),
+              ),
+              OptionSettingPage(
+                readRegister: (addr) => readRegister(addr),
+                writeRegister: (addr, val) => writeRegister(addr, val),
+                onRunModeChanged: (label) {           // ⬅ 추가
+                  if (!mounted) return;
+                  setState(() { runMode = label; });  // 홈 탭의 표시 즉시 갱신
+                },
+              ),     // 옵션 설정 탭
+            ],
+          ),
+          if (_loading && _currentIndex == 0) const _LoadingCover()
+        ],
+      ),
+
+    );
+  }
+}
+
+class _HomeTab extends StatelessWidget {
+  const _HomeTab({
+    required this.w,
+    required this.h,
+    required this.portrait,
+    required this.deviceName,
+    required this.diffPressure,
+    required this.power1,
+    required this.power2,
+    required this.operationTime,
+    required this.runMode,
+    required this.fanFreq,
+    required this.pulseDiff,
+    required this.solCount,
+    required this.motorStatus,
+    required this.pulseStatus,
+    required this.pulseColor,
+    required this.alarmCount,
+    required this.filterTime,
+    required this.filterCount,
+    required this.onToggleRun,
+    required this.onToggleBuzzer,
+  });
+
+  final double w, h;
+  final bool portrait;
+  final String deviceName;
+  final int diffPressure, operationTime, fanFreq, pulseDiff, solCount, alarmCount;
+  final int filterTime;
+  final int filterCount;
+  final double power1, power2;
+  final String runMode, pulseStatus;
+  final bool motorStatus;
+  final Color pulseColor;
+  final Future<void> Function() onToggleRun;
+  final Future<void> Function() onToggleBuzzer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Center(
         //child: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 0),
@@ -509,6 +607,7 @@ class _MainPageState extends State<MainPage> {
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,//박스 내 세로축 정렬상태
                         children: [
+                          Text(deviceName, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: motorStatus ? Colors.white : AppColor.duBlue),),
                           const SizedBox(height: 5),
                           SizedBox(
                             width: w * 0.8,
@@ -634,7 +733,7 @@ class _MainPageState extends State<MainPage> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Image.asset('assets/images/fan_on.gif', width: 60,
+                                    Image.asset(motorStatus ? 'assets/images/fan_on.gif' : 'assets/images/fan_off.png', width: 60,
                                       color: motorStatus? Colors.white : AppColor.duBlue,
                                       colorBlendMode: BlendMode.srcIn,), //on
                                     //Image.asset('assets/images/Fan_1.gif', width: 60,), // off
@@ -708,7 +807,7 @@ class _MainPageState extends State<MainPage> {
 
                                 child:
                                 ElevatedButton(
-                                  onPressed: _toggleRun,
+                                  onPressed: onToggleRun,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: motorStatus ? Colors.white : AppColor.duBlue,
                                     shadowColor: Colors.black,
@@ -748,7 +847,7 @@ class _MainPageState extends State<MainPage> {
                                 ),
                                 child:
                                 IconButton(
-                                  onPressed: _toggleBuzzer,
+                                  onPressed: onToggleBuzzer,
                                   icon: Icon(Icons.notifications_off_outlined,
                                       size: 20,
                                       color: motorStatus ? Colors.black : Colors.white
@@ -771,7 +870,7 @@ class _MainPageState extends State<MainPage> {
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.01),
+                      color: Colors.black.withValues(alpha: 0.01),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),
@@ -784,9 +883,9 @@ class _MainPageState extends State<MainPage> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: _gaugeTile('차압', diffPressure.toString(), 'mmAq',500)),
-                      Expanded(child: _gaugeTile('전류1', power1.toString(), 'A', 60)),
-                      Expanded(child: _gaugeTile('전류2', power2.toString(), 'A', 60)),
+                      Expanded(child: GaugeTile(title: '차압',  valueStr: diffPressure.toString(), unit: 'mmAq', max: 500)),
+                      Expanded(child: GaugeTile(title: '전류1', valueStr: power1.toString(),       unit: 'A',     max: 60)),
+                      Expanded(child: GaugeTile(title: '전류2', valueStr: power2.toString(),       unit: 'A',     max: 60)),
                     ],
                   ),
                 ),
@@ -800,7 +899,7 @@ class _MainPageState extends State<MainPage> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.01),
+                      color: Colors.black.withValues(alpha: 0.01),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -816,7 +915,6 @@ class _MainPageState extends State<MainPage> {
                     //
                     children: [
                       Text("필터 사용시간 : $filterTime", style: TextStyle(fontSize: 12),),
-
                       Text("필터 교체횟수 : $filterCount", style: TextStyle(fontSize:12),)
                     ],
                   ),
@@ -828,6 +926,101 @@ class _MainPageState extends State<MainPage> {
 
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+
+
+class GaugeTile extends StatelessWidget {
+  const GaugeTile({
+    super.key,
+    required this.title,
+    required this.valueStr,
+    required this.unit,
+    required this.max,
+  });
+
+  final String title, valueStr, unit;
+  final double max;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = double.tryParse(valueStr) ?? 0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = w * 0.8;
+        final axis = w * 0.13;
+        final titleFont = w * 0.10;
+        final valueFont = w * 0.10;
+        final unitFont = w * 0.075;
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title, style: TextStyle(fontSize: titleFont, fontWeight: FontWeight.w800, color: AppColor.duBlue)),
+            SizedBox(
+              height: h,
+              child: SfRadialGauge(
+                axes: <RadialAxis>[
+                  RadialAxis(
+                    startAngle: 180,
+                    endAngle: 0,
+                    minimum: 0,
+                    maximum: max,
+                    showLabels: false,
+                    showTicks: false,
+                    axisLineStyle: AxisLineStyle(thickness: axis),
+                    pointers: <GaugePointer>[
+                      RangePointer(value: value, color: AppColor.duBlue, width: axis),
+                    ],
+                    annotations: <GaugeAnnotation>[
+                      GaugeAnnotation(
+                        angle: -90,
+                        positionFactor: 0.1,
+                        widget: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(valueStr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: valueFont, color: AppColor.duBlue)),
+                            Text(unit, style: TextStyle(fontSize: unitFont, color: AppColor.duBlue)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+
+// 로딩 화면
+class _LoadingCover extends StatelessWidget {
+  const _LoadingCover();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.white.withValues(alpha: 0.85), // 배경 희미하게
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            CircularProgressIndicator(color: AppColor.duBlue,),
+            SizedBox(height: 12),
+            Text('연결 상태 확인 중...', style: TextStyle(fontSize: 14)),
+          ],
         ),
       ),
     );

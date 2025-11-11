@@ -101,7 +101,6 @@ class ConnectSettingPage extends StatelessWidget {
                 ],
               ),
               child: Padding(
-                // ❗️EdgeInsetsGeometry.all → EdgeInsets.all 로 수정
                 padding: EdgeInsets.all(w * 0.08),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -164,7 +163,6 @@ class ConnectSettingPage extends StatelessWidget {
                 if (!context.mounted) return;
                 try {
                   if (isConnected) {
-                    // ⛔️ 해제
                     await ModbusManager.instance.disconnect(
                       context,
                       host: dev.address,

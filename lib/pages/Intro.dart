@@ -31,7 +31,12 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'DuClean',
-      theme: ThemeData(fontFamily: 'Pretendard'),
+      theme: ThemeData(
+        fontFamily: 'Pretendard',
+        textSelectionTheme: const TextSelectionThemeData(
+          selectionHandleColor: AppColor.duBlue,
+        ),
+      ),
       routes: Routes.routes,
       home: const IntroPage(),
     );
