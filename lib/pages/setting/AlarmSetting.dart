@@ -62,7 +62,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
             motorReverse             = (motorRv == 1);
             alarm1Contact = alarm1;
             alarm2Contact = alarm2;
-            _loadFailed              = false;
+            _loadFailed = false;
           });
           return;
         }
@@ -86,6 +86,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
   Widget build(BuildContext context) {
     if (filterReplaceTime == null || filterReplaceRepeatTime == null || motorReverse == null || alarm1Contact == null
     || alarm2Contact == null) {
+
       return const Scaffold(
         backgroundColor: AppColor.bg,
         body: Center(child: CircularProgressIndicator(color: AppColor.duBlue,)),
@@ -97,6 +98,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
       body: SettingsList(
         sections: [
           SettingsSection(
+            title: Text("필터"),
             tiles: [
               SettingsTile.navigation(
                 leading: const Icon(Icons.timer_outlined),
@@ -148,6 +150,11 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
                   }
                 },
               ),
+            ]
+          ),
+          SettingsSection(
+            title: Text("모터"),
+            tiles: [
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,
                 onToggle: (v) => applyRegisterToggle(
@@ -163,6 +170,11 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
                 title: Text('모터 역방향 알람'),
                 description: Text('모터 역방향 알람을 설정합니다.'),
               ),
+            ]
+          ),
+          SettingsSection(
+            title: Text("알람"),
+            tiles: [
               SettingsTile.navigation(
                 leading: const Icon(Symbols.timer_play),
                 title: const Text('알람 1 접점 모드'),
@@ -223,8 +235,8 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
                   }
                 },
               ),
-            ],
-          ),
+            ]
+          )
         ],
       ),
     );

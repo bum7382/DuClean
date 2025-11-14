@@ -23,8 +23,11 @@ class OptionSettingPage extends StatefulWidget {
 
 class _OptionSettingPageState extends State<OptionSettingPage> {
   static const List<String> _labels = ['판넬', '연동', '원격', '통신(RS485)'];
-  bool? overDpFan;
-  String? runMode;
+  String? runMode;  // 운전 모드
+  bool? stopShowDp;  // 운전 정지 시 차압 표시
+  bool? overDpFan;  // 과차압 팬작동
+  bool? multiContact; // 다기능 접점
+  bool? blackoutReward; // 정전 보상
 
   bool _loadFailed = false;          // 모든 시도 실패 여부
   static const int _maxRetry = 10;
@@ -39,20 +42,30 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
     _loadFailed = false;
 
     setState(() {
-      overDpFan = null;
       runMode = null;
+      stopShowDp = null;
+      overDpFan = null;
+      multiContact = null;
+      blackoutReward = null;
     });
     for (int attempt = 1; attempt <= _maxRetry; attempt++) {
       try {
-        final overDp = await widget.readRegister(57);
         final mode = await widget.readRegister(34);
-        if (overDp != null && mode != null) {
+        final stopShow = await widget.readRegister(70);
+        final overDp = await widget.readRegister(57);
+        final multiC = await widget.readRegister(36);
+        final blackRe = await widget.readRegister(35);
+        if (overDp != null && mode != null && stopShow != null && multiC != null && blackRe != null) {
           if (!mounted) return;
           setState(() {
-            overDpFan = (overDp == 1);
             final m = (mode ?? 0);
             final safeIndex = (m >= 0 && m < _labels.length) ? m : 0;
             runMode = _labels[safeIndex];
+            stopShowDp = (stopShow == 1);
+            overDpFan = (overDp == 1);
+            multiContact = (multiC == 1);
+            blackoutReward = (blackRe == 1);
+            _loadFailed = false;
           });
         }
       } catch (_) {}
@@ -93,7 +106,7 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
   @override
   Widget build(BuildContext context) {
     // 데이터 로딩 중
-    if (overDpFan == null) {
+    if (overDpFan == null || stopShowDp == null || stopShowDp == null || multiContact == null || blackoutReward == null) {
       return const Scaffold(
         backgroundColor: AppColor.bg,
         body: Center(child: CircularProgressIndicator(color: AppColor.duBlue,)),
@@ -111,7 +124,22 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                 onToggle: (v) => applyRegisterToggle(
                   context: context,
                   newValue: v,
-                  address: 57, // 과차압 팬알람 레지스터
+                  address: 70,
+                  writeRegister: widget.writeRegister,
+                  setLocalValue: (nv) => setState(() => stopShowDp = nv),
+                  errorText: '운전 정지 시 차압 표시 실패',
+                ),
+                initialValue: stopShowDp!,
+                leading: const Icon(Symbols.toys_fan_rounded),
+                title: Text('운전 정지 시 차압 표시'),
+                description: Text('운전 정지 시 차압을 표시합니다.'),
+              ),
+              SettingsTile.switchTile(
+                activeSwitchColor: AppColor.duBlue,
+                onToggle: (v) => applyRegisterToggle(
+                  context: context,
+                  newValue: v,
+                  address: 57,
                   writeRegister: widget.writeRegister,
                   setLocalValue: (nv) => setState(() => overDpFan = nv),
                   errorText: '과차압 팬알람 설정 실패',
@@ -121,6 +149,54 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                 title: Text('과차압팬작동'),
                 description: Text('과차압 알람 발생 시 자동으로 팬을 동작시킵니다.'),
               ),
+              SettingsTile.switchTile(
+                activeSwitchColor: AppColor.duBlue,
+                onToggle: (v) => applyRegisterToggle(
+                  context: context,
+                  newValue: v,
+                  address: 36,
+                  writeRegister: widget.writeRegister,
+                  setLocalValue: (nv) => setState(() => multiContact = nv),
+                  errorText: '다기능 접점 설정 실패',
+                ),
+                initialValue: multiContact!,
+                leading: const Icon(Symbols.toys_fan_rounded),
+                title: Text('다기능 접점'),
+                description: Text('다기능 접점을 설정합니다. (수동 솔동작 / MULTI 알람)'),
+              ),
+              SettingsTile.switchTile(
+                activeSwitchColor: AppColor.duBlue,
+                onToggle: (v) => applyRegisterToggle(
+                  context: context,
+                  newValue: v,
+                  address: 35,
+                  writeRegister: widget.writeRegister,
+                  setLocalValue: (nv) => setState(() => blackoutReward = nv),
+                  errorText: '정전 보상 기능 설정 실패',
+                ),
+                initialValue: blackoutReward!,
+                leading: const Icon(Symbols.toys_fan_rounded),
+                title: Text('정전보상'),
+                description: Text('정전 보상 기능 사용 여부를 설정합니다.'),
+              ),
+              SettingsTile(
+                title: const Text('필터 사용시간 초기화'),
+                trailing: TextButton(
+                  onPressed: () async {
+                    await widget.writeRegister(11, 1);
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.red,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text('초기화'),
+                ),
+              ),
+
               SettingsTile.navigation(
                 leading: const Icon(Icons.tune),
                 title: const Text('동작 모드'),

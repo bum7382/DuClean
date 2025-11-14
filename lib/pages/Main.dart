@@ -509,8 +509,14 @@ class _MainPageState extends State<MainPage> {
                 onToggleRun: _toggleRun,        // MainPage의 함수 전달
                 onToggleBuzzer: _toggleBuzzer,  // MainPage의 함수 전달
               ),
-              const FrequencySettingPage(),  // 주파수 설정 탭
-              const PulseSettingPage(),      // 펄스 설정 탭
+              FrequencySettingPage(
+                readRegister: (addr) => readRegister(addr),
+                writeRegister: (addr, val) => writeRegister(addr, val),
+              ),  // 주파수 설정 탭
+              PulseSettingPage(
+                readRegister: (addr) => readRegister(addr),
+                writeRegister: (addr, val) => writeRegister(addr, val),
+              ),      // 펄스 설정 탭
               AlarmSettingPage(              // 알람 설정 탭
                 readRegister: (addr) => readRegister(addr),
                 writeRegister: (addr, val) => writeRegister(addr, val),

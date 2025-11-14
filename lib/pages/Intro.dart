@@ -95,6 +95,7 @@ class IntroPage extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).pushNamed(Routes.connectListPage);
+                      //Navigator.of(context).pushNamed(Routes.mainPage);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColor.duBlue,
