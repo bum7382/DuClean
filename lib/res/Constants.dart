@@ -7,7 +7,7 @@ class AppColor {
 }
 
 class AppConst {
-  static const version = 'V 1.0.6';
+  static const version = 'V 1.0.7';
 }
 
 /// 기기 식별용 간단 모델 (ConnectList에서 사용)
@@ -15,11 +15,13 @@ class DeviceKey {
   final String host;   // IP 또는 IP:PORT
   final int unitId;    // Modbus Unit ID
   final String name;   // 표시 이름
+  final int number;
 
   const DeviceKey({
     required this.host,
     required this.unitId,
     required this.name,
+    this.number = 0,
   });
 
   String get id => '$host#$unitId';

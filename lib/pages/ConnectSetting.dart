@@ -177,6 +177,7 @@ class ConnectSettingPage extends StatelessWidget {
                       context,
                       host: dev.address,
                       unitId: dev.unitId,
+                      name: dev.name,
                       // verifyAddress: 1, // 필요시 명시적으로 핑 주소 지정 가능
                     );
                     if (!context.mounted) return;

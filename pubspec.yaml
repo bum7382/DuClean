@@ -43,6 +43,7 @@ dependencies:
   provider: ^6.1.5+1
   material_symbols_icons: ^4.2874.0
   settings_ui: ^2.0.2
+  fl_chart: ^1.1.1
 
 dev_dependencies:
   flutter_test:

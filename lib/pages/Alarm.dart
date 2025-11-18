@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:duclean/res/Constants.dart';
 import 'package:duclean/services/alarm_store.dart';
+import 'package:duclean/common/context_extensions.dart';
 // import 'package:mqtt_client/mqtt_client.dart';
 // import 'package:mqtt_client/mqtt_server_client.dart';
 
@@ -110,10 +111,50 @@ class _AlarmPageState extends State<AlarmPage> {
     }
   }
 
+  Future<void> _onDeleteAllPressed() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('알람 내역 삭제'),
+          content: const Text('알람 내역을 모두 삭제하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('취소', style: TextStyle(color: Colors.black87)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('삭제', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+
+    if (!ok) return;
+
+    // 실제 삭제
+    await AlarmStore.clearAll();
+
+    // 화면 갱신 (Stream 재시작)
+    if (!mounted) return;
+    setState(() {
+      _stream = _alarmStream();
+    });
+  }
 
 
   @override
   Widget build(BuildContext context) {
+
+    // 화면 크기
+    final w = context.screenWidth;
+    final h = context.screenHeight;
+
+    // 세로 모드 여부
+    final portrait = context.isPortrait;
+
     // 기기 이름 인자
     String? _resolveDeviceName(BuildContext context) {
       final args = ModalRoute.of(context)?.settings.arguments;
@@ -135,6 +176,18 @@ class _AlarmPageState extends State<AlarmPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          Padding(
+            padding: EdgeInsetsGeometry.only(right: w * 0.04),
+            child:
+              IconButton(
+                onPressed: _onDeleteAllPressed,
+                icon: Icon(Icons.delete, color: Colors.white, size: 30,)
+              )
+
+          )
+
+        ],
         backgroundColor: AppColor.duBlue,
       ),
       body: StreamBuilder<List<AlarmRecord>>(
@@ -177,7 +230,6 @@ class _AlarmPageState extends State<AlarmPage> {
                 final msg = _alarmMessage(e.code);
                 final isCleared = clearedAt != null;
 
-                final deviceLabel = (e.name.isNotEmpty) ? e.name : '${e.host}#${e.unitId}';
 
                 return Container(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -186,7 +238,7 @@ class _AlarmPageState extends State<AlarmPage> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
+                        color: Colors.black.withAlpha(4),
                         blurRadius: 18,
                         offset: const Offset(0, 8),
                       ),
@@ -200,13 +252,22 @@ class _AlarmPageState extends State<AlarmPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              deviceLabel,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                color: isCleared ? Colors.grey : AppColor.duBlue,
-                              ),
+                            Row(
+                              textBaseline: TextBaseline.alphabetic,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              spacing: 5,
+                              children: [
+                                Text(
+                                  e.name, style: TextStyle( fontSize: 15, fontWeight: FontWeight.w500,
+                                    color: isCleared ? Colors.grey : AppColor.duBlue,
+                                  ),
+                                ),
+                                Text(
+                                  e.host, style: TextStyle( fontSize: 10, fontWeight: FontWeight.w400,
+                                  color: isCleared ? Colors.grey : Colors.black,
+                                ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 4),
                             Text("발생: $occurredTxt",

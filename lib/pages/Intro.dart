@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:duclean/res/Constants.dart';
 import 'package:provider/provider.dart';
 import 'package:duclean/providers/selected_device.dart';
+import 'package:duclean/providers/dp_history.dart';
 import 'dart:math';
 
 
@@ -15,6 +16,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => SelectedDevice()),
         ChangeNotifierProvider(create: (_) => ConnectionRegistry()),
+        ChangeNotifierProvider(create: (_) => DpHistory()),
       ],
       child: const MyApp(),
     ),
@@ -95,7 +97,7 @@ class IntroPage extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).pushNamed(Routes.connectListPage);
-                      //Navigator.of(context).pushNamed(Routes.mainPage);
+
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColor.duBlue,

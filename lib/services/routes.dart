@@ -4,6 +4,7 @@ import 'package:duclean/pages/ConnectList.dart';
 import 'package:duclean/pages/ConnectSetting.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:duclean/pages/detail/DpDetail.dart';
 
 
 class Routes {
@@ -13,11 +14,13 @@ class Routes {
   static const String alarmPage = '/alarmPage';
   static const String connectListPage = '/connectListPage';
   static const String connectSettingPage = '/connectSettingPage';
+  static const String dpDetailPage = '/dpDetailPage';
 
   static final routes = <String, WidgetBuilder>{
     connectListPage: (BuildContext context) => ConnectListPage(),
     connectSettingPage: (BuildContext context) => ConnectSettingPage(),
     mainPage: (BuildContext context) => MainPage(),
     alarmPage: (BuildContext context) => AlarmPage(),
+    dpDetailPage: (BuildContext context) => DpDetailPage(),
   };
 }

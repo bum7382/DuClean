@@ -61,6 +61,12 @@ class AlarmStore {
     return out;
   }
 
+  // 알람 기록 전체 삭제
+  static Future<void> clearAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(kAlarmHistKey);
+  }
+
   static Future<void> _saveAll(List<AlarmRecord> list) async {
     final prefs = await SharedPreferences.getInstance();
     // 오래된 것 정리

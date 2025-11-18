@@ -35,7 +35,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
 
     if (raw == null || raw.isEmpty) {
       _items = const [
-        DeviceKey(host: '192.168.10.190', unitId: 1, name: 'AP-500'),
+        DeviceKey(host: '192.168.10.190', unitId: 1, name: 'AP-500', number: 1),
       ];
       await _saveDevices();
     } else {
@@ -46,12 +46,28 @@ class _ConnectListPageState extends State<ConnectListPage> {
           final host = (m['host'] as String?) ?? '';
           final unit = (m['unitId'] as num?)?.toInt() ?? 1;
           final name = (m['name'] as String?) ?? 'Device';
+          final numVal = (m['number'] as num?)?.toInt();
           if (host.isNotEmpty) {
-            list.add(DeviceKey(host: host, unitId: unit, name: name));
+            final tempNumber = numVal ?? 0;
+            list.add(DeviceKey(host: host, unitId: unit, name: name, number: tempNumber));
           }
         } catch (_) {/* skip */}
       }
-      if (list.isNotEmpty) _items = list;
+
+      list.sort((a, b) => (a.number == 0 ? 9999 : a.number).compareTo(b.number == 0 ? 9999 : b.number));
+
+      // 리스트 순서대로 number를 1부터 재할당
+      if (list.isNotEmpty) {
+        _items = list.asMap().entries.map((e) {
+          final d = e.value;
+          return DeviceKey(
+            host: d.host,
+            unitId: d.unitId,
+            name: d.name,
+            number: e.key + 1,
+          );
+        }).toList();
+      }
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -59,24 +75,34 @@ class _ConnectListPageState extends State<ConnectListPage> {
   Future<void> _saveDevices() async {
     final prefs = await SharedPreferences.getInstance();
     final toSave = _items
-        .map((e) => jsonEncode({'host': e.host, 'unitId': e.unitId, 'name': e.name}))
+        .map((e) => jsonEncode({'host': e.host, 'unitId': e.unitId, 'name': e.name, 'number': e.number}))
         .toList();
     await prefs.setStringList(_kDevicesStoreKey, toSave);
   }
 
   // 설정: 선택 저장 → 설정 페이지로 이동
+
   void _openSetting(DeviceKey d) {
     context.read<SelectedDevice>().select(
-      DeviceInfo(name: d.name, address: d.host, unitId: d.unitId),
+      DeviceInfo(
+        name: d.name,
+        address: d.host,
+        unitId: d.unitId,
+        number: d.number,
+      ),
     );
     Navigator.of(context).pushNamed(Routes.connectSettingPage);
   }
 
-  // 메인: 선택 → 연결 여부 확인(Registry 기준) → 이동
+// 메인: 선택 → 연결 여부 확인(Registry 기준) → 이동
   void _openMain(DeviceKey d) {
-    // 선택 동기화(메인에서 Provider로 읽음)
     context.read<SelectedDevice>().select(
-      DeviceInfo(name: d.name, address: d.host, unitId: d.unitId),
+      DeviceInfo(
+        name: d.name,
+        address: d.host,
+        unitId: d.unitId,
+        number: d.number,
+      ),
     );
 
     final isConnected = context.read<ConnectionRegistry>()
@@ -90,6 +116,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
     }
     Navigator.of(context).pushNamed(Routes.mainPage);
   }
+
 
   Future<void> _addDevice() async {
     final result = await showModalBottomSheet<DeviceKey>(
@@ -105,7 +132,23 @@ class _ConnectListPageState extends State<ConnectListPage> {
             .showSnackBar(const SnackBar(content: Text('같은 Host/UnitID 장비가 이미 있습니다.')));
         return;
       }
-      setState(() => _items.add(result));
+
+      int maxNo = 0;
+      for (final e in _items) {
+        if (e.number > maxNo) maxNo = e.number;
+      }
+      final nextNo = maxNo + 1;
+
+      setState(() {
+        _items.add(
+          DeviceKey(
+            host: result.host,
+            unitId: result.unitId,
+            name: result.name,
+            number: nextNo,
+          ),
+        );
+      });
       await _saveDevices();
     }
   }
@@ -127,7 +170,17 @@ class _ConnectListPageState extends State<ConnectListPage> {
             .showSnackBar(const SnackBar(content: Text('같은 Host/UnitID 장비가 이미 있습니다.')));
         return;
       }
-      setState(() => _items[index] = result);
+
+      final old = _items[index];
+
+      setState(() {
+        _items[index] = DeviceKey(
+          host: result.host,
+          unitId: result.unitId,
+          name: result.name,
+          number: old.number,
+        );
+      });
       await _saveDevices();
     }
   }
@@ -150,7 +203,23 @@ class _ConnectListPageState extends State<ConnectListPage> {
     // 연결되어 있었다면 끊고 레지스트리 갱신까지 내부에서 처리
     await ModbusManager.instance.disconnect(context, host: d.host, unitId: d.unitId);
 
-    setState(() => _items.removeAt(index));
+    setState(() {
+      // 해당 항목 삭제
+      _items.removeAt(index);
+
+      // 순서 재할당
+      _items = _items.asMap().entries.map((e) {
+        final currentIdx = e.key;
+        final oldDevice = e.value;
+
+        return DeviceKey(
+          host: oldDevice.host,
+          unitId: oldDevice.unitId,
+          name: oldDevice.name,
+          number: currentIdx + 1,
+        );
+      }).toList();
+    });
     await _saveDevices();
   }
 
@@ -184,6 +253,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, i) {
           final d = _items[i];
+          final no = (d.number != 0) ? d.number : (i + 1);
           return Dismissible(
             key: ValueKey('${d.host}#${d.unitId}'),
             direction: DismissDirection.endToStart,
@@ -199,6 +269,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
             },
             child: _DeviceTile(
               device: d,
+              number: no,
               onOpen: () => _openMain(d),
               onSetting: () => _openSetting(d),
               onEdit: () => _editDevice(i),
@@ -215,6 +286,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
 class _DeviceTile extends StatelessWidget {
   const _DeviceTile({
     required this.device,
+    required this.number,
     required this.onOpen,
     required this.onSetting,
     required this.onEdit,
@@ -222,6 +294,7 @@ class _DeviceTile extends StatelessWidget {
   });
 
   final DeviceKey device;
+  final int number;
   final VoidCallback onOpen;
   final VoidCallback onSetting;
   final VoidCallback onEdit;
@@ -234,19 +307,41 @@ class _DeviceTile extends StatelessWidget {
 
     // connected 값만 구독(리빌드 최소화)
     final connected = context.select<ConnectionRegistry, bool>(
-          (r) => r.stateOf(d.host, d.unitId).connected,
+      (r) => r.stateOf(d.host, d.unitId).connected,
     );
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-      leading: Image.asset(
-        connected ? "assets/images/logo_color.png" : "assets/images/logo_black.png",
-        width: w * 0.1,
+      leading: Stack(
+        children: [
+          Image.asset(
+            connected ? "assets/images/logo_color.png" : "assets/images/logo_black.png",
+            width: w * 0.1,
+          ),
+          Positioned(
+            top: -3,
+            child: Text(
+              number.toString(),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: connected ? AppColor.duBlue : Colors.black,
+              ),
+            ),
+          ),
+        ]
       ),
       title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
-      subtitle: Text(
-        '${d.host} Unit ID : ${d.unitId}',
-        style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 12),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('IP: ${d.host}',
+            style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 12),
+          ),
+          Text('Unit ID : ${d.unitId}',
+            style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 12),
+          ),
+        ],
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -262,6 +357,7 @@ class _DeviceTile extends StatelessWidget {
             onPressed: onSetting,
           ),
           PopupMenuButton<String>(
+            iconColor: Colors.grey,
             onSelected: (v) async {
               if (v == 'disconnect') {
                 await ModbusManager.instance.disconnect(context, host: d.host, unitId: d.unitId);

@@ -21,16 +21,16 @@ class ModbusManager {
     return c;
   }
 
-  void _autoStartAlarmWatch(String host, int unitId) {
+  void _autoStartAlarmWatch(String host, int unitId, String name) {
     final k = _key(host, unitId);
     if (_alarmPollers.containsKey(k)) return; // 이미 감시 중
     final poller = _AlarmPoller(
       host: host,
       unitId: unitId,
-      name: '$host#$unitId', // 표시명(필요하면 아래 3-참고의 setDeviceLabel로 나중에 교체 가능)
+      name: name, // 표시명(필요하면 아래 3-참고의 setDeviceLabel로 나중에 교체 가능)
       interval: const Duration(seconds: 1),
       ensure: ({int verifyAddress = 0}) =>
-          ensureConnectedSilent(host: host, unitId: unitId, verifyAddress: verifyAddress),
+          ensureConnectedSilent(host: host, unitId: unitId, verifyAddress: verifyAddress, name: name),
     );
     _alarmPollers[k] = poller;
     poller.start();
@@ -56,6 +56,7 @@ class ModbusManager {
       BuildContext context, {
         required String host,
         required int unitId,
+        required String name,
         int verifyAddress = 0, // 기본: 입력레지스터 #0
       })
   async {
@@ -65,7 +66,7 @@ class ModbusManager {
     final cur = _clients[k];
     if (cur != null && cur.isConnected) {
       context.read<ConnectionRegistry>().markConnected(host, unitId);
-      _autoStartAlarmWatch(host, unitId);
+      _autoStartAlarmWatch(host, unitId, name);
       return cur;
     }
 
@@ -77,7 +78,7 @@ class ModbusManager {
     if (healthy) {
       _clients[k] = nc;
       context.read<ConnectionRegistry>().markConnected(host, unitId);
-      _autoStartAlarmWatch(host, unitId);
+      _autoStartAlarmWatch(host, unitId, name);
       return nc;
     } else {
       try { await nc.disconnect(); } catch (_) {}
@@ -91,6 +92,7 @@ class ModbusManager {
   Future<ModbusClientTcp> ensureConnectedSilent({
     required String host,
     required int unitId,
+    required String name,
     int verifyAddress = 0, // 입력레지스터 #0 권장
   }) async {
     final k = _key(host, unitId);
@@ -98,7 +100,7 @@ class ModbusManager {
     // 재사용
     final cur = _clients[k];
     if (cur != null && cur.isConnected) {
-      _autoStartAlarmWatch(host, unitId);
+      _autoStartAlarmWatch(host, unitId, name);
       return cur;
     }
 
@@ -109,7 +111,7 @@ class ModbusManager {
     final healthy = await _ping(nc!, address: verifyAddress);
     if (healthy) {
       _clients[k] = nc;
-      _autoStartAlarmWatch(host, unitId);
+      _autoStartAlarmWatch(host, unitId, name);
       return nc;
     } else {
       try { await nc.disconnect(); } catch (_) {}
@@ -131,10 +133,10 @@ class ModbusManager {
     final poller = _AlarmPoller(
       host: host,
       unitId: unitId,
-      name: '$host#$unitId',
+      name: name,
       interval: interval,
       ensure: ({int verifyAddress = 0}) =>
-          ensureConnectedSilent(host: host, unitId: unitId, verifyAddress: verifyAddress),
+          ensureConnectedSilent(host: host, unitId: unitId, name: name, verifyAddress: verifyAddress),
     );
     _alarmPollers[k] = poller;
     poller.start();
@@ -168,8 +170,9 @@ class ModbusManager {
         required String host,
         required int unitId,
         required int address,
+        required String name,
       }) async {
-    final c = await ensureConnected(context, host: host, unitId: unitId);
+    final c = await ensureConnected(context, host: host, unitId: unitId, name: name);
     final reg = ModbusInt16Register(
       name: "Holding($address)",
       type: ModbusElementType.holdingRegister, // FC03
@@ -185,8 +188,9 @@ class ModbusManager {
         required int unitId,
         required int address,
         required int value,
+        required String name,
       }) async {
-    final c = await ensureConnected(context, host: host, unitId: unitId);
+    final c = await ensureConnected(context, host: host, unitId: unitId, name: name);
     final reg = ModbusInt16Register(
       name: "Holding($address)",
       type: ModbusElementType.holdingRegister, // FC06

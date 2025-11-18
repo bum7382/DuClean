@@ -183,7 +183,33 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                 title: const Text('필터 사용시간 초기화'),
                 trailing: TextButton(
                   onPressed: () async {
-                    await widget.writeRegister(11, 1);
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) {
+                        return AlertDialog(
+                          title: const Text('초기화 확인'),
+                          content: const Text('필터 사용시간을 초기화하시겠습니까?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(ctx).pop(false); // 취소
+                              },
+                              child: const Text('취소', style: TextStyle(color: Colors.black87),),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(ctx).pop(true); // 확인
+                              },
+                              child: const Text('확인', style: TextStyle(color: AppColor.duBlue, fontWeight: FontWeight.w700),),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+
+                    if (confirmed == true) {
+                      await widget.writeRegister(11, 1);
+                    }
                   },
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.white,

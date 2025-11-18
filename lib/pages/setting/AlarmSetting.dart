@@ -98,6 +98,11 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
       body: SettingsList(
         sections: [
           SettingsSection(
+              margin: const EdgeInsetsDirectional.only(
+                top: 4,
+                bottom: 100,
+              ),
+
             title: Text("필터"),
             tiles: [
               SettingsTile.navigation(
@@ -208,13 +213,13 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
               SettingsTile.navigation(
                 leading: const Icon(Symbols.timer_play),
                 title: const Text('알람 2 접점 모드'),
-                value: Text(alarm1Contact == 1 ? 'A접점' : 'B접점'),
+                value: Text(alarm2Contact == 1 ? 'A접점' : 'B접점'),
                 onPressed: (_) async {
                   final selected = await showRadioPicker<String>(
                     context: context,
                     title: '알람 2 접점 모드',
                     options: const ['A접점', 'B접점'],
-                    groupValue: (alarm1Contact == 1) ? 'A접점' : 'B접점',
+                    groupValue: (alarm2Contact == 1) ? 'A접점' : 'B접점',
                     labelOf: (s) => s,
                   );
                   if (selected == null) return;
@@ -224,7 +229,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
                   if (!mounted) return;
 
                   if (ok) {
-                    setState(() => alarm1Contact = v);
+                    setState(() => alarm2Contact = v);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('알람 2 접점 모드가 저장되었습니다.')),
                     );
