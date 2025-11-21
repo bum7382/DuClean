@@ -115,7 +115,7 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
       body: SettingsList(
         sections: [
           SettingsSection(
-            title: Text("펄스"),
+            //title: Text("펄스 설정"),
             tiles: [
               SettingsTile.navigation(
                 leading: const Icon(Icons.speed),
@@ -132,7 +132,7 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
                     min: 0,
                     max: 300,
                     step: 1,
-                    unit: ' mmAq',
+                    //unit: ' mmAq',
                     accentColor: AppColor.duBlue,
                   );
                   if (saved != null && mounted) {
@@ -141,7 +141,7 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
                 },
               ),
               SettingsTile.navigation(
-                leading: const Icon(Icons.speed),
+                leading: const Icon(Icons.stop_circle),
                 title: const Text('펄스 정지 편차'),
                 value: Text('$pulseStopDp mmAq'), // 화면에 보여줄 현재값(보유 중인 state 사용)
                 onPressed: (_) async {
@@ -155,7 +155,7 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
                     min: 0,
                     max: 100,
                     step: 1,
-                    unit: ' mmAq',
+                    //unit: ' mmAq',
                     accentColor: AppColor.duBlue,
                   );
                   if (saved != null && mounted) {
@@ -166,7 +166,7 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
               SettingsTile.navigation(
                 leading: const Icon(Icons.timer_outlined),
                 title: const Text('펄스 동작 시간'),
-                value: Text('${pulseRunTime!}'),
+                value: Text('${pulseRunTime!} ms'),
                 onPressed: (_) async {
                   final saved = await showRegisterNumberEditor(
                     context: context,
@@ -189,9 +189,9 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
                 },
               ),
               SettingsTile.navigation(
-                leading: const Icon(Icons.timer_outlined),
+                leading: const Icon(Icons.pause_circle),
                 title: const Text('펄스 지연 시간'),
-                value: Text('${pulseDelayTime!}'),
+                value: Text('${pulseDelayTime!} ms'),
                 onPressed: (_) async {
                   final saved = await showRegisterNumberEditor(
                     context: context,
@@ -216,10 +216,10 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
             ],
           ),
           SettingsSection(
-            title: Text("펄싱 솔밸브"),
+            //title: Text("솔밸브"),
             tiles: [
               SettingsTile.navigation(
-                leading: const Icon(Icons.speed),
+                leading: const Icon(Icons.format_list_numbered),
                 title: const Text('펄싱 솔밸브 개수'),
                 value: Text('$pulseSolCount 개'), // 화면에 보여줄 현재값(보유 중인 state 사용)
                 onPressed: (_) async {
@@ -244,17 +244,17 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
             ],
           ),
           SettingsSection(
-            title: Text("펄스 시간 및 주기"),
+            title: Text("자동/수동 펄스 설정"),
             tiles: [
               SettingsTile.navigation(
-                leading: const Icon(Icons.timer_outlined),
+                leading: const Icon(Icons.auto_mode),
                 title: const Text('자동 펄스 시간'),
-                value: Text('${pulseAutoTime!}'),
+                value: Text('${pulseAutoTime!} 초'),
                 onPressed: (_) async {
                   final saved = await showRegisterNumberEditor(
                     context: context,
                     title: '자동 펄스 시간',
-                    icon: Icons.timer_outlined,
+                    icon: Icons.auto_mode,
                     address: 64,
                     initialValue: pulseAutoTime!,
                     writeRegister: widget.writeRegister,
@@ -272,7 +272,7 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
                 },
               ),
               SettingsTile.navigation(
-                leading: const Icon(Icons.speed),
+                leading: const Icon(Icons.start),
                 title: const Text('추가 펄스 주기'),
                 value: Text('$pulseAddCycle 회'), // 화면에 보여줄 현재값(보유 중인 state 사용)
                 onPressed: (_) async {
@@ -297,7 +297,7 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
             ],
           ),
           SettingsSection(
-            title: Text("수동 펄스"),
+            //title: Text("수동 펄스"),
             tiles: [
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,
@@ -310,12 +310,12 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
                   errorText: '수동 펄스 모드 설정 실패',
                 ),
                 initialValue: pulseManualMode!,
-                leading: const Icon(Symbols.mode),
+                leading: const Icon(Symbols.swipe),
                 title: Text('수동 펄스 모드'),
-                description: Text('수동 펄스 모드를 설정합니다. (수동/전자동)'),
+                description: Text('수동 / 전자동'),
               ),
               SettingsTile.navigation(
-                leading: const Icon(Icons.speed),
+                leading: const Icon(Icons.repeat),
                 title: const Text('수동 펄스 주기'),
                 value: Text('$pulseManualCycle 회'), // 화면에 보여줄 현재값(보유 중인 state 사용)
                 onPressed: (_) async {

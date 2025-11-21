@@ -6,6 +6,9 @@ import 'package:modbus_client/modbus_client.dart';
 import 'package:provider/provider.dart';
 import 'package:duclean/providers/selected_device.dart';
 import 'package:duclean/services/alarm_store.dart';
+import 'package:duclean/providers/selected_device.dart';
+import 'package:duclean/providers/dp_history.dart';
+import 'package:duclean/providers/power_history.dart';
 
 class ModbusManager {
   ModbusManager._();
@@ -13,6 +16,11 @@ class ModbusManager {
 
   final Map<String, ModbusClientTcp> _clients = {}; // key: host#unitId
   final Map<String, _AlarmPoller> _alarmPollers = {};
+
+  // 🔹 전체 기기 차압/전류 히스토리 폴링용 타이머
+  Timer? _historyTimer;
+  bool _historyPollingStarted = false;
+
   String _key(String host, int unitId) => '$host#$unitId';
 
   Future<ModbusClientTcp?> _connect(String host, int unitId) async {
@@ -86,6 +94,90 @@ class ModbusManager {
       context.read<ConnectionRegistry>().markDisconnected(host, unitId);
       throw Exception('Modbus slave not responding (host=$host, unitId=$unitId)');
     }
+  }
+
+  /// 🔹 한 기기의 차압/전류만 읽어서 히스토리에 넣는 내부 헬퍼
+  Future<void> _pollDpAndPowerOnce(
+      BuildContext context, {
+        required String host,
+        required int unitId,
+      }) async {
+    // 0~69 input register 읽기용 그룹 (MainPage에서 쓰는 거랑 동일)
+    final inputs = ModbusElementsGroup(
+      List.generate(70, (i) => ModbusUint16Register(
+        name: 'hist_in_$i',
+        type: ModbusElementType.inputRegister,
+        address: i,
+      )),
+    );
+
+    // 연결 확보 (기존 ensureConnected 재사용)
+    final client = await ensureConnected(
+      context,
+      host: host,
+      unitId: unitId,
+      name: '$host#$unitId',
+    );
+
+    // 레지스터 읽기
+    await client!.send(inputs.getReadRequest());
+
+    final dp = (inputs[0] as ModbusUint16Register).value?.toInt() ?? 0;
+    final p1 =
+        ((inputs[1] as ModbusUint16Register).value?.toDouble() ?? 0) / 10;
+    final p2 =
+        ((inputs[2] as ModbusUint16Register).value?.toDouble() ?? 0) / 10;
+
+    // Provider에 히스토리 적재
+    final dpHistory = context.read<DpHistory>();
+    final powerHistory = context.read<PowerHistory>();
+
+    dpHistory.addPointFor(host, unitId, dp.toDouble());
+    powerHistory.addPointFor(host, unitId, 1, p1);
+    powerHistory.addPointFor(host, unitId, 2, p2);
+  }
+
+  /// 🔹 전체 connectedDevices 를 1초마다 돌면서 차압/전류 히스토리 적재
+  void startHistoryPolling(BuildContext context) {
+    if (_historyPollingStarted) return; // 한 번만 시작
+    _historyPollingStarted = true;
+
+    _historyTimer ??=
+        Timer.periodic(const Duration(seconds: 1), (Timer t) async {
+          try {
+            final registry = context.read<ConnectionRegistry>();
+            final selected = context.read<SelectedDevice>().current;
+            final devices = registry.connectedDevices;
+
+            for (final dev in devices) {
+              // ✅ 현재 선택된 기기(MainPage에서 이미 폴링 중)는 제외
+              if (selected != null &&
+                  selected.address == dev.host &&
+                  selected.unitId == dev.unitId) {
+                continue;
+              }
+
+              try {
+                await _pollDpAndPowerOnce(
+                  context,
+                  host: dev.host,
+                  unitId: dev.unitId,
+                );
+              } catch (e) {
+                debugPrint('히스토리 폴링 실패 (${dev.host}#${dev.unitId}): $e');
+              }
+            }
+          } catch (e) {
+            debugPrint('히스토리 폴링 루프 오류: $e');
+          }
+        });
+  }
+
+
+  void stopHistoryPolling() {
+    _historyTimer?.cancel();
+    _historyTimer = null;
+    _historyPollingStarted = false;
   }
 
   /// 컨텍스트 없이 조용히 연결 보장(Provider 갱신/markConnected 생략)

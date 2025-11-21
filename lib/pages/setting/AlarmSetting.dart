@@ -107,12 +107,12 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
             tiles: [
               SettingsTile.navigation(
                 leading: const Icon(Icons.timer_outlined),
-                title: const Text('필터 교체시간'),
-                value: Text('${filterReplaceTime!}'),
+                title: const Text('필터 교체 시간'),
+                value: Text('${filterReplaceTime!} Hour'),
                 onPressed: (_) async {
                   final saved = await showRegisterNumberEditor(
                     context: context,
-                    title: '필터 교체시간 설정',
+                    title: '필터 교체 시간 설정',
                     icon: Icons.timer_outlined,
                     address: 37,
                     initialValue: filterReplaceTime!,
@@ -125,7 +125,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
                   if (saved != null && mounted) {
                     setState(() => filterReplaceTime = saved);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('필터 교체시간이 저장되었습니다.')),
+                      const SnackBar(content: Text('필터 교체 시간이 저장되었습니다.')),
                     );
                   }
                 },
@@ -133,7 +133,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
               SettingsTile.navigation(
                 leading: const Icon(Icons.alarm),
                 title: const Text('필터 교체 재알람 시간'),
-                value: Text('${filterReplaceRepeatTime}'),
+                value: Text('${filterReplaceRepeatTime} Hour'),
                 onPressed: (_) async {
                   final saved = await showRegisterNumberEditor(
                     context: context,
@@ -158,7 +158,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
             ]
           ),
           SettingsSection(
-            title: Text("모터"),
+           // title: Text("모터"),
             tiles: [
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,
@@ -173,7 +173,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
                 initialValue: motorReverse!,
                 leading: const Icon(Symbols.toys_fan_rounded),
                 title: Text('모터 역방향 알람'),
-                description: Text('모터 역방향 알람을 설정합니다.'),
+                description: Text('모터 역방향 알람 사용'),
               ),
             ]
           ),
@@ -181,61 +181,61 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
             title: Text("알람"),
             tiles: [
               SettingsTile.navigation(
-                leading: const Icon(Symbols.timer_play),
-                title: const Text('알람 1 접점 모드'),
-                value: Text(alarm1Contact == 1 ? 'A접점' : 'B접점'),
+                leading: const Icon(Symbols.siren_open),
+                title: const Text('알람 1 접점'),
+                value: Text(alarm1Contact == 1 ? 'A접점(Normal Open)' : 'B접점(Normal Close)'),
                 onPressed: (_) async {
                   final selected = await showRadioPicker<String>(
                     context: context,
-                    title: '알람 1 접점 모드',
-                    options: const ['A접점', 'B접점'],
-                    groupValue: (alarm1Contact == 1) ? 'A접점' : 'B접점',
+                    title: '알람 1 접점',
+                    options: const ['A접점(Normal Open)', 'B접점(Normal Close)'],
+                    groupValue: (alarm1Contact == 1) ? 'A접점(Normal Open)' : 'B접점(Normal Close)',
                     labelOf: (s) => s,
                   );
                   if (selected == null) return;
 
-                  final v = (selected == 'A접점') ? 1 : 2;
+                  final v = (selected == 'A접점(Normal Open)') ? 1 : 2;
                   final ok = await widget.writeRegister(42, v);
                   if (!mounted) return;
 
                   if (ok) {
                     setState(() => alarm1Contact = v);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('알람 1 접점 모드가 저장되었습니다.')),
+                      const SnackBar(content: Text('알람 1 접점이 저장되었습니다.')),
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('알람 1 접점 모드 저장 실패')),
+                      const SnackBar(content: Text('알람 1 접점 저장 실패')),
                     );
                   }
                 },
               ),
               SettingsTile.navigation(
-                leading: const Icon(Symbols.timer_play),
-                title: const Text('알람 2 접점 모드'),
-                value: Text(alarm2Contact == 1 ? 'A접점' : 'B접점'),
+                leading: const Icon(Symbols.siren_open),
+                title: const Text('알람 2 접점'),
+                value: Text(alarm2Contact == 1 ? 'A접점(Normal Open)' : 'B접점(Normal Close)'),
                 onPressed: (_) async {
                   final selected = await showRadioPicker<String>(
                     context: context,
-                    title: '알람 2 접점 모드',
-                    options: const ['A접점', 'B접점'],
-                    groupValue: (alarm2Contact == 1) ? 'A접점' : 'B접점',
+                    title: '알람 2 접점',
+                    options: const ['A접점(Normal Open)', 'B접점(Normal Close)'],
+                    groupValue: (alarm2Contact == 1) ? 'A접점(Normal Open)' : 'B접점(Normal Close)',
                     labelOf: (s) => s,
                   );
                   if (selected == null) return;
 
-                  final v = (selected == 'A접점') ? 1 : 2;
+                  final v = (selected == 'A접점(Normal Open)') ? 1 : 2;
                   final ok = await widget.writeRegister(55, v);
                   if (!mounted) return;
 
                   if (ok) {
                     setState(() => alarm2Contact = v);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('알람 2 접점 모드가 저장되었습니다.')),
+                      const SnackBar(content: Text('알람 2 접점이 저장되었습니다.')),
                     );
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('알람 2 접점 모드 저장 실패')),
+                      const SnackBar(content: Text('알람 2 접점 저장 실패')),
                     );
                   }
                 },

@@ -119,6 +119,24 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
         sections: [
           SettingsSection(
             tiles: <SettingsTile>[
+
+              SettingsTile.navigation(
+                leading: const Icon(Icons.cable),
+                title: const Text('동작 모드'),
+                value: Text(runMode != null ? runMode! : ""),
+                onPressed: (_) async {
+                  final selected = await showRadioPicker<String>(
+                    context: context,
+                    title: '동작 모드',
+                    options: _labels,
+                    groupValue: runMode != null ? runMode! : "",
+                    labelOf: (s) => s,
+                  );
+                  if (selected != null && selected != runMode) {
+                    await _setRunMode(selected);
+                  }
+                },
+              ),
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,
                 onToggle: (v) => applyRegisterToggle(
@@ -130,9 +148,9 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                   errorText: '운전 정지 시 차압 표시 실패',
                 ),
                 initialValue: stopShowDp!,
-                leading: const Icon(Symbols.toys_fan_rounded),
-                title: Text('운전 정지 시 차압 표시'),
-                description: Text('운전 정지 시 차압을 표시합니다.'),
+                leading: const Icon(Symbols.bar_chart),
+                title: Text('운전 정지, 차압 표시'),
+                description: Text('가동 정지 상태에서 차압 표시'),
               ),
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,
@@ -142,12 +160,12 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                   address: 57,
                   writeRegister: widget.writeRegister,
                   setLocalValue: (nv) => setState(() => overDpFan = nv),
-                  errorText: '과차압 팬알람 설정 실패',
+                  errorText: '차압 알람 설정 실패',
                 ),
                 initialValue: overDpFan!,
                 leading: const Icon(Symbols.toys_fan_rounded),
-                title: Text('과차압팬작동'),
-                description: Text('과차압 알람 발생 시 자동으로 팬을 동작시킵니다.'),
+                title: Text('차압 알람, 팬 가동'),
+                description: Text('차압 알람시에 팬 계속 가동'),
               ),
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,
@@ -160,9 +178,9 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                   errorText: '다기능 접점 설정 실패',
                 ),
                 initialValue: multiContact!,
-                leading: const Icon(Symbols.toys_fan_rounded),
-                title: Text('다기능 접점'),
-                description: Text('다기능 접점을 설정합니다. (수동 솔동작 / MULTI 알람)'),
+                leading: const Icon(Symbols.alarm),
+                title: Text('다기능 접점 선택'),
+                description: Text('수동 솔동작 / MULTI 알람'),
               ),
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,
@@ -175,19 +193,19 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                   errorText: '정전 보상 기능 설정 실패',
                 ),
                 initialValue: blackoutReward!,
-                leading: const Icon(Symbols.toys_fan_rounded),
-                title: Text('정전보상'),
-                description: Text('정전 보상 기능 사용 여부를 설정합니다.'),
+                leading: const Icon(Symbols.refresh),
+                title: Text('정전 보상 기능'),
+                description: Text('정전 보상 기능 선택'),
               ),
               SettingsTile(
-                title: const Text('필터 사용시간 초기화'),
+                title: const Text('필터 사용 시간 초기화'),
                 trailing: TextButton(
                   onPressed: () async {
                     final confirmed = await showDialog<bool>(
                       context: context,
                       builder: (ctx) {
                         return AlertDialog(
-                          title: const Text('초기화 확인'),
+                          title: const Text('필터 교체 확인'),
                           content: const Text('필터 사용시간을 초기화하시겠습니까?'),
                           actions: [
                             TextButton(
@@ -223,23 +241,6 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                 ),
               ),
 
-              SettingsTile.navigation(
-                leading: const Icon(Icons.tune),
-                title: const Text('동작 모드'),
-                value: Text(runMode != null ? runMode! : ""),
-                onPressed: (_) async {
-                  final selected = await showRadioPicker<String>(
-                    context: context,
-                    title: '동작 모드',
-                    options: _labels,
-                    groupValue: runMode != null ? runMode! : "",
-                    labelOf: (s) => s,
-                  );
-                  if (selected != null && selected != runMode) {
-                    await _setRunMode(selected);
-                  }
-                },
-              ),
             ],
           ),
         ],

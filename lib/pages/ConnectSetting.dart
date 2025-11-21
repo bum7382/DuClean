@@ -53,12 +53,13 @@ class ConnectSettingPage extends StatelessWidget {
         ),
         backgroundColor: AppColor.duBlue,
       ),
-      body: Center(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          spacing: h * 0.05,
+      body: Column(
+        //child: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        //crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: h * 0.03,
           children: [
-            SizedBox(height: h * 0.15),
+            SizedBox(height: h * 0.02),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               spacing: 10,
@@ -67,13 +68,13 @@ class ConnectSettingPage extends StatelessWidget {
                   isConnected
                       ? "assets/images/logo_color.png"
                       : "assets/images/logo_black.png",
-                  width: w * 0.13,
+                  width: w * 0.1,
                 ),
                 Text(
                   dev.name,
                   style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: w * 0.08,
+                    fontWeight: FontWeight.w500,
+                    fontSize: w * 0.05,
                     color: AppColor.duBlue,
                   ),
                 ),
@@ -115,11 +116,11 @@ class ConnectSettingPage extends StatelessWidget {
                         Text(
                           isConnected ? '연결됨' : '연결 끊김',
                           style: const TextStyle(
-                              fontWeight: FontWeight.w500, fontSize: 20, color: Colors.black),
+                              fontWeight: FontWeight.w500, fontSize: 18, color: Colors.black),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         const Text('IP',
@@ -130,11 +131,11 @@ class ConnectSettingPage extends StatelessWidget {
                           dev.address,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontWeight: FontWeight.w500, fontSize: 20, color: Colors.black),
+                              fontWeight: FontWeight.w500, fontSize: 18, color: Colors.black),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         const Text('Unit ID',
@@ -144,7 +145,7 @@ class ConnectSettingPage extends StatelessWidget {
                         Text(
                           '${dev.unitId}',
                           style: const TextStyle(
-                              fontWeight: FontWeight.w500, fontSize: 20, color: Colors.black),
+                              fontWeight: FontWeight.w500, fontSize: 18, color: Colors.black),
                         ),
                       ],
                     ),
@@ -154,7 +155,7 @@ class ConnectSettingPage extends StatelessWidget {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: isConnected ? const Color(0xffD80000) : AppColor.duBlue,
+                backgroundColor: isConnected ? AppColor.duRed : AppColor.duBlue,
                 elevation: 2,
                 textStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 20),
                 padding: const EdgeInsetsDirectional.symmetric(horizontal: 30, vertical: 10),
@@ -178,6 +179,7 @@ class ConnectSettingPage extends StatelessWidget {
                       host: dev.address,
                       unitId: dev.unitId,
                       name: dev.name,
+
                       // verifyAddress: 1, // 필요시 명시적으로 핑 주소 지정 가능
                     );
                     if (!context.mounted) return;
@@ -186,28 +188,53 @@ class ConnectSettingPage extends StatelessWidget {
                   }
                   // Registry가 갱신되며 isConnected는 자동으로 반영됨.
                 } catch (e) {
+                  String error = "";
+                  if(e.toString().contains("not responding")){
+                    error = "기기가 응답하지 않아 연결에 실패했습니다. 기기나 와이파이를 점검해주세요.";
+                  }
+                  else if(e.toString().contains("timeout")){
+                    error = "기기가 정상적으로 응답하지 않아 연결에 실패했습니다. 연결 설정이 올바른지 점검해주세요.";
+                  }
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text('연결 실패: $e')));
+                      .showSnackBar(SnackBar(content: Text(error)));
                 }
               },
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 spacing: 10,
                 children: [
-                  Icon(isConnected ? Icons.link_off : Icons.link, color: Colors.white, size: 25),
+                  Icon(isConnected ? Icons.link_off : Icons.link, color: Colors.white, size: 20),
                   Text(
                     isConnected ? "연결 끊기" : "연결",
                     style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
                   ),
+
                 ],
               ),
-            )
+            ),
+            if(isConnected)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColor.duBlue,
+                  elevation: 2,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 20),
+                  padding: const EdgeInsetsDirectional.symmetric(horizontal: 30, vertical: 10),
+                ),
+                onPressed: (){Navigator.of(context).pushNamed(Routes.mainPage);},
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 10,
+                  children: [
+                    Icon(Icons.home_outlined, color: Colors.white, size: 20),
+                    Text("홈 화면으로", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
 
-
+                  ],
+                ),
+              )
           ],
         ),
-      ),
+    //  ),
     );
   }
 }

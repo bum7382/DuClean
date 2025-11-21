@@ -122,16 +122,16 @@ class _AlarmSettingPageState extends State<FrequencySettingPage> {
       body: SettingsList(
         sections: [
           SettingsSection(
-            title: Text("주파수 모드"),
+            //title: Text("주파수 모드"),
             tiles: [
               SettingsTile.navigation(
-                leading: const Icon(Icons.tune),
-                title: const Text('주파수 출력 모드'),
+                leading: const Icon(Icons.input),
+                title: const Text('주파수 선택'),
                 value: Text(freqMode != null ? freqMode! : ""),
                 onPressed: (_) async {
                   final selected = await showRadioPicker<String>(
                     context: context,
-                    title: '주파수 출력 모드',
+                    title: '주파수 모드',
                     options: _labels,
                     groupValue: freqMode != null ? freqMode! : "",
                     labelOf: (s) => s,
@@ -144,12 +144,12 @@ class _AlarmSettingPageState extends State<FrequencySettingPage> {
             ],
           ),
           SettingsSection(
-            title: Text("주파수 설정"),
+           // title: Text("주파수 설정"),
             tiles: [
               SettingsTile.navigation(
-                leading: const Icon(Icons.speed),
+                leading: const Icon(Icons.moving),
                 title: const Text('출력 주파수'),
-                value: Text('$freqRun'),
+                value: Text('$freqRun Hz'),
                 onPressed: (_) async {
                   final saved = await showDialRegisterEditor(
                     context: context,
@@ -170,9 +170,9 @@ class _AlarmSettingPageState extends State<FrequencySettingPage> {
                 },
               ),
               SettingsTile.navigation(
-                leading: const Icon(Icons.speed),
+                leading: const Icon(Icons.vertical_align_bottom),
                 title: const Text('주파수 최소 출력'),
-                value: Text('$freqMin'),
+                value: Text('$freqMin Hz'),
                 onPressed: (_) async {
                   final saved = await showDialRegisterEditor(
                     context: context,
@@ -193,9 +193,9 @@ class _AlarmSettingPageState extends State<FrequencySettingPage> {
                 },
               ),
               SettingsTile.navigation(
-                leading: const Icon(Icons.speed),
+                leading: const Icon(Icons.vertical_align_top),
                 title: const Text('주파수 최대 출력'),
-                value: Text('$freqMax'),
+                value: Text('$freqMax Hz'),
                 onPressed: (_) async {
                   final saved = await showDialRegisterEditor(
                     context: context,
@@ -216,9 +216,9 @@ class _AlarmSettingPageState extends State<FrequencySettingPage> {
                 },
               ),
               SettingsTile.navigation(
-                leading: const Icon(Icons.timer_outlined),
+                leading: const Icon(Icons.display_settings),
                 title: const Text('주파수 보정'),
-                value: Text('${freqAdjust!}'),
+                value: Text('${freqAdjust!} '),
                 onPressed: (_) async {
                   final saved = await showRegisterNumberEditor(
                     context: context,

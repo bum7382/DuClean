@@ -23,10 +23,31 @@ class _ConnectListPageState extends State<ConnectListPage> {
   List<DeviceKey> _items = []; // 저장된 기기
   bool _loading = true;
 
+  bool _historyPollingStarted = false;
+
   @override
   void initState() {
     super.initState();
     _loadDevices();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_historyPollingStarted) return;
+    _historyPollingStarted = true;
+
+    // 첫 프레임 빌드가 끝난 뒤에 폴링 시작 (context 안정화)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ModbusManager.instance.startHistoryPolling(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    ModbusManager.instance.stopHistoryPolling();
+    super.dispose();
   }
 
   Future<void> _loadDevices() async {
@@ -112,9 +133,11 @@ class _ConnectListPageState extends State<ConnectListPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('기기에 연결되어 있지 않습니다. 설정에서 연결 후 접속하세요.')),
       );
-      return;
+      Navigator.of(context).pushNamed(Routes.connectSettingPage);
     }
-    Navigator.of(context).pushNamed(Routes.mainPage);
+    else {
+      Navigator.of(context).pushNamed(Routes.mainPage);
+    }
   }
 
 
@@ -311,19 +334,19 @@ class _DeviceTile extends StatelessWidget {
     );
 
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
       leading: Stack(
         children: [
           Image.asset(
             connected ? "assets/images/logo_color.png" : "assets/images/logo_black.png",
             width: w * 0.1,
           ),
+         //기기 목록 순번
           Positioned(
-            top: -3,
             child: Text(
               number.toString(),
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 8,
                 fontWeight: FontWeight.bold,
                 color: connected ? AppColor.duBlue : Colors.black,
               ),
@@ -331,15 +354,15 @@ class _DeviceTile extends StatelessWidget {
           ),
         ]
       ),
-      title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+      title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.w400, fontSize: 10)),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('IP: ${d.host}',
-            style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 12),
+            style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 9),
           ),
           Text('Unit ID : ${d.unitId}',
-            style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 12),
+            style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 9),
           ),
         ],
       ),
@@ -350,11 +373,14 @@ class _DeviceTile extends StatelessWidget {
             tooltip: '수정',
             icon: const Icon(Icons.edit, color: Colors.grey),
             onPressed: onEdit,
+            visualDensity: const VisualDensity(horizontal: -3.5),
           ),
           IconButton(
             tooltip: '설정',
             icon: const Icon(Icons.settings, color: Colors.grey),
             onPressed: onSetting,
+            //visualDensity: VisualDensity.compact,
+              visualDensity: const VisualDensity(horizontal: -3.5)
           ),
           PopupMenuButton<String>(
             iconColor: Colors.grey,

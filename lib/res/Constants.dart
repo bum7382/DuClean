@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 
 class AppColor {
   static const duBlue = Color(0xFF004D94);
+  static const duRed = Color(0xFFAD2323);
+  static const duGreen = Color(0xFF009E42);
+
   static const bg = Color(0xfff6f6f6);
 }
 
 class AppConst {
-  static const version = 'V 1.0.7';
+  static const version = 'V 1.0.8';
 }
 
 /// 기기 식별용 간단 모델 (ConnectList에서 사용)

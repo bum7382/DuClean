@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/device_info.dart';
+import 'package:flutter/scheduler.dart';
 
 // 현재 선택된 기기 정보
 class SelectedDevice extends ChangeNotifier {
@@ -59,6 +60,20 @@ class ConnectionRegistry extends ChangeNotifier {
   final Map<String, ConnState> _states = {};
   Map<String, ConnState> get states => _states;
 
+  void _safeNotifyListeners() {
+    // foundation.dart 에서 SchedulerBinding 가져오려면
+    if (!SchedulerBinding.instance.hasScheduledFrame &&
+        SchedulerBinding.instance.schedulerPhase == SchedulerPhase.idle) {
+      // 지금 빌드/레이아웃/페인트 중이 아니면 바로
+      notifyListeners();
+    } else {
+      // 빌드 중/레이아웃 중이면 다음 프레임으로 미룸
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
+    }
+  }
+
   // 해당 장비의 상태를 가져옴, 없으면 생성
   ConnState stateOf(String host, int unitId) =>
       _states.putIfAbsent('${host}#${unitId}', () => ConnState());
@@ -77,14 +92,14 @@ class ConnectionRegistry extends ChangeNotifier {
     s.connected = true;
     s.lastSeen = DateTime.now();
     s.failCount = 0;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   // 연결 해제 표시
   void markDisconnected(String host, int unitId) {
     final s = stateOf(host, unitId);
     s.connected = false;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   // 알람 코드 변경 시 alarmAt을 갱신
@@ -101,7 +116,7 @@ class ConnectionRegistry extends ChangeNotifier {
       s.alarmCode = cur;
       s.alarmAt = now; // 발생 시각
       s.lastSeen = now;
-      notifyListeners();
+      _safeNotifyListeners();
       return;
     }
 
@@ -114,7 +129,7 @@ class ConnectionRegistry extends ChangeNotifier {
       }
       s.alarmCode = 0;
       s.lastSeen = now;
-      notifyListeners();
+      _safeNotifyListeners();
       return;
     }
 
@@ -126,6 +141,6 @@ class ConnectionRegistry extends ChangeNotifier {
   void bumpFail(String host, int unitId) {
     final s = stateOf(host, unitId);
     s.failCount += 1;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 }

@@ -252,18 +252,18 @@ class _AlarmPageState extends State<AlarmPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Column(
                               textBaseline: TextBaseline.alphabetic,
                               crossAxisAlignment: CrossAxisAlignment.baseline,
                               spacing: 5,
                               children: [
                                 Text(
-                                  e.name, style: TextStyle( fontSize: 15, fontWeight: FontWeight.w500,
+                                  e.name, style: TextStyle( fontSize: 11, fontWeight: FontWeight.w300,
                                     color: isCleared ? Colors.grey : AppColor.duBlue,
                                   ),
                                 ),
                                 Text(
-                                  e.host, style: TextStyle( fontSize: 10, fontWeight: FontWeight.w400,
+                                   e.host, style: TextStyle( fontSize: 10, fontWeight: FontWeight.w300,
                                   color: isCleared ? Colors.grey : Colors.black,
                                 ),
                                 ),

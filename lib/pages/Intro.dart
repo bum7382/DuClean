@@ -7,6 +7,7 @@ import 'package:duclean/res/Constants.dart';
 import 'package:provider/provider.dart';
 import 'package:duclean/providers/selected_device.dart';
 import 'package:duclean/providers/dp_history.dart';
+import 'package:duclean/providers/power_history.dart';
 import 'dart:math';
 
 
@@ -17,6 +18,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => SelectedDevice()),
         ChangeNotifierProvider(create: (_) => ConnectionRegistry()),
         ChangeNotifierProvider(create: (_) => DpHistory()),
+        ChangeNotifierProvider(create: (_) => PowerHistory()),
       ],
       child: const MyApp(),
     ),
