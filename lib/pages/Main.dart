@@ -25,7 +25,7 @@ import 'package:syncfusion_flutter_gauges/gauges.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:duclean/services/alarm_store.dart';
 
-
+import 'package:animations/animations.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -33,8 +33,6 @@ class MainPage extends StatefulWidget {
   @override
   State<MainPage> createState() => _MainPageState();
 }
-
-
 
 class _MainPageState extends State<MainPage> {
   // 통신 설정
@@ -59,46 +57,46 @@ class _MainPageState extends State<MainPage> {
   late final ModbusElementsGroup _inputs;
 
   // UI 표시값
-  var diffPressure = 0;  // 차압
+  var diffPressure = 0; // 차압
   var power1 = 0.0; // 전류 1
   var power2 = 0.0; // 전류 2
 
   // 운전시간
   int operationTime = 0;
 
-  String pulseStatus = "펄스 정지";  // 펄스 운전상태
+  String pulseStatus = "펄스 정지"; // 펄스 운전상태
   Color pulseColor = Color(0xffF71041);
-  bool motorStatus = false;  // 송풍기 운전상태
+  bool motorStatus = false; // 송풍기 운전상태
 
-  var solValveStatus = false;  // 솔밸브 동작상태
+  var solValveStatus = false; // 솔밸브 동작상태
 
   // 필터 정보 활성화 25.10.31
   var filterTime = 0; // 필터 교체 시간
   var filterCount = 0; // 필터 교체 횟수
 
-  int activeSolValveNo = 0;  // 동작 솔밸브 번호
+  int activeSolValveNo = 0; // 동작 솔밸브 번호
   var manualPulseStatus; // 수동펄스상태
 
   var ao1diffPressure; // AO1 차압출력
-  var ao2Frequency;  // AO2 주파수 출력
+  var ao2Frequency; // AO2 주파수 출력
 
-  var alarm1Output;  // 알람 1 출력
+  var alarm1Output; // 알람 1 출력
   var alarm2Output; // 알람 2 출력
   var alarmBuzzerFlag; // 알람부저플래그
   var alarmCode; // 알람발생코드
 
   var preAlarm = -1; // 이전 알람
-  var isAlarmClear = true;  // 알람 해제 여부
-  var currentAlarm = 0;  // 현재 알람
+  var isAlarmClear = true; // 알람 해제 여부
+  var currentAlarm = 0; // 현재 알람
   bool isAlarmChanged = false; // 알람 변경 여부
   var alarmDate; // 알람 발생 시각
 
-  var alarmCount = 0;  // 발생알람개수
+  var alarmCount = 0; // 발생알람개수
   var diStatusValue; // DI 상태값
-  var firmwareVersion;  // 펌웨어 버전
+  var firmwareVersion; // 펌웨어 버전
 
-// Holding Register(4x)
-  final runModeList = ['판넬', '연동', '원격', '통신(RS485)'];  // 동작 설정
+  // Holding Register(4x)
+  final runModeList = ['판넬', '연동', '원격', '통신(RS485)']; // 동작 설정
   var runMode = "";
 
   var fanFreq = 0; // #60 송풍기 가동 주파수
@@ -110,27 +108,29 @@ class _MainPageState extends State<MainPage> {
   var dpLowLimit = 0; // 저차압 설정
   var dpLowAlarmDelay = 0; // 저차압 알람지연
   var powerLimit = 0; // 과전류 설정
-  var powerDiff = 0;  // 전류 편차
-
+  var powerDiff = 0; // 전류 편차
 
   bool _loading = true;
   int _pollFailCount = 0;
   static const int _failToShowLoading = 2;
 
-
   @override
   void initState() {
     super.initState();
     _inputs = ModbusElementsGroup(
-      List.generate(70, (i) => ModbusUint16Register(
-        name: 'in_$i',
-        type: ModbusElementType.inputRegister,
-        address: i,
-      )),
+      List.generate(
+        70,
+        (i) => ModbusUint16Register(
+          name: 'in_$i',
+          type: ModbusElementType.inputRegister,
+          address: i,
+        ),
+      ),
     );
   }
 
   int _currentIndex = 0;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -150,12 +150,16 @@ class _MainPageState extends State<MainPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // 초기 읽기 먼저
+      await _startPolling();
       await _readOnEnter();
       // 그 다음 폴링 시작
-      await _startPolling();
     });
 
-    ModbusManager.instance.startAlarmWatch(host: _host, unitId: _unitId, name: _deviceName);
+    ModbusManager.instance.startAlarmWatch(
+      host: _host,
+      unitId: _unitId,
+      name: _deviceName,
+    );
     _alarmBadgeTimer?.cancel();
     _alarmBadgeTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _tickGlobalAlarmCount();
@@ -173,35 +177,47 @@ class _MainPageState extends State<MainPage> {
     super.dispose();
   }
 
-
   // 첫 진입 시 R/W 레지스터 값 읽어서 초기화
   Future<void> _readOnEnter() async {
-    // 초기 진입시 필요한 홀딩들
-    final diff = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 27, name: _deviceName) ?? 0;
-    final sol = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 33, name: _deviceName) ?? 0;
-    final mode = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 34, name: _deviceName);
-    final freq = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 60, name: _deviceName) ?? 0;
+    final list = await ModbusManager.instance.readHoldingRange(
+      context,
+      host: _host,
+      unitId: _unitId,
+      startAddress: 26,
+      count: 45,
+      // 26~70
+      name: _deviceName,
+    );
 
-    final dHLimit  = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 29, name: _deviceName) ?? 0;
-    final dHAlarmD  = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 65, name: _deviceName) ?? 0;
-    final dLLimit  = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 67, name: _deviceName) ?? 0;
-    final dLAlarmD  = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 68, name: _deviceName) ?? 0;
-    final pLimit  = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 32, name: _deviceName) ?? 0;
-    final pDiff  = await ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, address: 44, name: _deviceName) ?? 0;
+    if (!mounted) return;
+    if (list == null || list.isEmpty) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    int _get(int addr, {int defaultValue = 0}) {
+      final idx = addr - 26;
+      if (idx < 0 || idx >= list.length) return defaultValue;
+      return list[idx];
+    }
+
+    final diff = _get(27, defaultValue: 0);
+    final sol = _get(33, defaultValue: 0);
+    final mode = _get(34, defaultValue: 0);
+    final freq = _get(60, defaultValue: 0);
+
+    final dHLimit = _get(29, defaultValue: 0);
+    final dHAlarmD = _get(65, defaultValue: 0);
+    final dLLimit = _get(67, defaultValue: 0);
+    final dLAlarmD = _get(68, defaultValue: 0);
+    final pLimit = _get(32, defaultValue: 0);
+    final pDiff = _get(44, defaultValue: 0);
 
     if (!mounted) return;
     setState(() {
-      runMode = (mode != null && mode >= 0 && mode < runModeList.length) ? runModeList[mode] : '';
+      runMode = (mode != null && mode >= 0 && mode < runModeList.length)
+          ? runModeList[mode]
+          : '';
       fanFreq = freq;
       pulseDiff = diff;
       solCount = sol;
@@ -211,7 +227,6 @@ class _MainPageState extends State<MainPage> {
       dpLowAlarmDelay = dLAlarmD;
       powerLimit = pLimit;
       powerDiff = pDiff;
-      _loading = false;
     });
   }
 
@@ -226,13 +241,134 @@ class _MainPageState extends State<MainPage> {
       final key = '${e.host}#${e.unitId}';
       if (seen.containsKey(key)) continue; // 이미 최신 레코드 반영됨
       seen[key] = true;
-      if (e.clearedTsMs == null) open++;   // 최신이 미해제면 그 기기는 "알람 진행 중"
+      if (e.clearedTsMs == null) open++; // 최신이 미해제면 그 기기는 "알람 진행 중"
     }
 
     if (!mounted) return;
     setState(() => _globalAlarmOpenCount = open);
   }
 
+  // Read Input Register 함수
+  Future<void> _startPolling() async {
+    // 최초 1회만 연결 확보(실패하면 throw되어 catch에서 다음 틱에 재시도)
+    _client ??= await ModbusManager.instance.ensureConnected(
+      context,
+      host: _host,
+      unitId: _unitId,
+      name: _deviceName,
+    );
+
+    _poller?.cancel();
+    _poller = Timer.periodic(_pollInterval, (_) async {
+      if (!mounted) return;
+      if (_pollingBusy) return;
+      _pollingBusy = true;
+      try {
+        if (_client == null || !(_client!.isConnected)) {
+          _client = await ModbusManager.instance.ensureConnected(
+            context,
+            host: _host,
+            unitId: _unitId,
+            name: _deviceName,
+          );
+        }
+
+        await _client!.send(_inputs.getReadRequest());
+
+        final dp = (_inputs[0] as ModbusUint16Register).value?.toInt() ?? 0;
+        final p1 =
+            ((_inputs[1] as ModbusUint16Register).value?.toDouble() ?? 0) / 10;
+        final p2 =
+            ((_inputs[2] as ModbusUint16Register).value?.toDouble() ?? 0) / 10;
+        final opHi = (_inputs[11] as ModbusUint16Register).value?.toInt() ?? 0;
+        final opLo = (_inputs[12] as ModbusUint16Register).value?.toInt() ?? 0;
+        final pul = (_inputs[13] as ModbusUint16Register).value?.toInt() ?? 0;
+        final run = (_inputs[14] as ModbusUint16Register).value?.toInt() ?? 0;
+        final solNumber =
+            (_inputs[18] as ModbusUint16Register).value?.toInt() ??
+            0; //동작 솔밸브 번호
+
+        final curAlarm =
+            (_inputs[25] as ModbusUint16Register).value?.toInt() ?? 0;
+        final alarmCnt =
+            (_inputs[40] as ModbusUint16Register).value?.toInt() ?? 0;
+
+        final filterUsed =
+            (_inputs[16] as ModbusUint16Register).value?.toInt() ?? 0;
+        final filterChange =
+            (_inputs[17] as ModbusUint16Register).value?.toInt() ?? 0;
+
+        context.read<ConnectionRegistry>().setAlarmCode(
+          _host,
+          _unitId,
+          curAlarm,
+        );
+
+        // 차압 히스토리
+        context.read<DpHistory>().addPointFor(_host, _unitId, dp.toDouble());
+
+        // 전류 히스토리 (power1 = 채널 1, power2 = 채널 2)
+        context.read<PowerHistory>().addPointFor(_host, _unitId, 1, p1);
+        context.read<PowerHistory>().addPointFor(_host, _unitId, 2, p2);
+
+        if (!mounted) return;
+        setState(() {
+          diffPressure = dp;
+          power1 = p1;
+          power2 = p2;
+          operationTime = ((opHi & 0xFFFF) << 16) | (opLo & 0xFFFF);
+          pulseStatus = pulseStatusLabel(pul);
+          motorStatus = (run != 0);
+          currentAlarm = curAlarm;
+          alarmCount = alarmCnt;
+          filterTime = filterUsed;
+          filterCount = filterChange;
+          _pollFailCount = 0;
+          activeSolValveNo = solNumber;
+          _loading = false;
+        });
+      } catch (e) {
+        // 실패 시: 로딩 표시 및 다음 틱에서 자동 재시도
+        if (!mounted) return;
+        setState(() {
+          _pollFailCount++;
+          if (_pollFailCount >= _failToShowLoading) {
+            _loading = true;
+          }
+        });
+        debugPrint('폴링 실패: $e');
+
+        // 소켓이 비정상일 수 있으므로 다음 틱 전에 정리
+        try {
+          await _client?.disconnect();
+        } catch (_) {}
+        _client = null;
+      } finally {
+        _pollingBusy = false;
+      }
+    });
+  }
+
+  Future<bool> writeRegister(int address, int value) {
+    return ModbusManager.instance.writeHolding(
+      context,
+      host: _host,
+      unitId: _unitId,
+      name: _deviceName,
+      address: address,
+      value: value,
+    );
+  }
+
+  Future<int?> readRegister(int address) {
+    return ModbusManager.instance.readHolding(
+      context,
+      host: _host,
+      unitId: _unitId,
+      name: _deviceName,
+      address: address,
+    );
+  }
 
   // 펄스 모드 라벨화
   String pulseStatusLabel(int code) {
@@ -259,106 +395,98 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  // Read Input Register 함수
-  Future<void> _startPolling() async {
-    // 최초 1회만 연결 확보(실패하면 throw되어 catch에서 다음 틱에 재시도)
-    _client ??= await ModbusManager.instance.ensureConnected(
-      context, host: _host, unitId: _unitId, name: _deviceName
-    );
-
-    _poller?.cancel();
-    _poller = Timer.periodic(_pollInterval, (_) async {
-      if (!mounted) return;
-      if (_pollingBusy) return;       // ⬅ 재진입 방지
-      _pollingBusy = true;
-      try {
-        // 연결 확인: 끊겼으면 이 시점에만 재연결 시도
-        if (_client == null || !(_client!.isConnected)) {
-          _client = await ModbusManager.instance.ensureConnected(
-            context, host: _host, unitId: _unitId, name: _deviceName
-          );
-        }
-
-        await _client!.send(_inputs.getReadRequest());
-
-        final dp   = (_inputs[0]  as ModbusUint16Register).value?.toInt() ?? 0;
-        final p1   = ((_inputs[1]  as ModbusUint16Register).value?.toDouble() ?? 0) / 10;
-        final p2   = ((_inputs[2]  as ModbusUint16Register).value?.toDouble() ?? 0) / 10;
-        final opHi = (_inputs[11] as ModbusUint16Register).value?.toInt() ?? 0;
-        final opLo = (_inputs[12] as ModbusUint16Register).value?.toInt() ?? 0;
-        final pul  = (_inputs[13] as ModbusUint16Register).value?.toInt() ?? 0;
-        final run  = (_inputs[14] as ModbusUint16Register).value?.toInt() ?? 0;
-        final solNumber  = (_inputs[18] as ModbusUint16Register).value?.toInt() ?? 0;//동작 솔밸브 번호
-
-
-
-        final curAlarm = (_inputs[25] as ModbusUint16Register).value?.toInt() ?? 0;
-        final alarmCnt = (_inputs[40] as ModbusUint16Register).value?.toInt() ?? 0;
-
-        final filterUsed   = (_inputs[16] as ModbusUint16Register).value?.toInt() ?? 0;
-        final filterChange = (_inputs[17] as ModbusUint16Register).value?.toInt() ?? 0;
-
-        context.read<ConnectionRegistry>().setAlarmCode(_host, _unitId, curAlarm);
-
-        // 차압 히스토리
-        context.read<DpHistory>().addPointFor(_host, _unitId, dp.toDouble(),);
-
-        // 전류 히스토리 (power1 = 채널 1, power2 = 채널 2)
-        context.read<PowerHistory>().addPointFor(_host, _unitId, 1, p1);
-        context.read<PowerHistory>().addPointFor(_host, _unitId, 2, p2);
-
-
-        if (!mounted) return;
-        setState(() {
-          diffPressure   = dp;
-          power1         = p1;
-          power2         = p2;
-          operationTime  = ((opHi & 0xFFFF) << 16) | (opLo & 0xFFFF);
-          pulseStatus    = pulseStatusLabel(pul);
-          motorStatus    = (run != 0);
-          currentAlarm   = curAlarm;
-          alarmCount     = alarmCnt;
-          filterTime     = filterUsed;
-          filterCount    = filterChange;
-          _pollFailCount = 0;
-          activeSolValveNo = solNumber;
-          _loading = false;
-        });
-      } catch (e) {
-        // 실패 시: 로딩 표시 및 다음 틱에서 자동 재시도
-        if (!mounted) return;
-        setState(() {
-          _pollFailCount++;
-          if (_pollFailCount >= _failToShowLoading) {
-            _loading = true;
-          }
-        });
-        debugPrint('폴링 실패: $e');
-
-        // 소켓이 비정상일 수 있으므로 다음 틱 전에 정리
-        try { await _client?.disconnect(); } catch (_) {}
-        _client = null;
-      } finally {
-        _pollingBusy = false;
+  // 모터 실행 토글 함수
+  Future<void> _toggleRun() async {
+    try {
+      if (motorStatus) {
+        await writeRegister(0, 0); // 정지
+      } else {
+        await writeRegister(0, 1); // 운전
       }
-    });
+      if (!mounted) return;
+      setState(() {
+        motorStatus = !motorStatus;
+      });
+    } catch (e) {
+      debugPrint('토글 실패: $e');
+    }
   }
 
-
-  Future<bool> writeRegister(int address, int value) {
-    return ModbusManager.instance.writeHolding(
-        context, host: _host, unitId: _unitId, name: _deviceName, address: address, value: value);
+  // 부저 함수
+  Future<void> _toggleBuzzer() async {
+    try {
+      if (!mounted) return;
+      await writeRegister(1, 1);
+    } catch (e) {
+      debugPrint('쓰기 실패: $e');
+    }
   }
 
-  Future<int?> readRegister(int address) {
-    return ModbusManager.instance.readHolding(
-        context, host: _host, unitId: _unitId, name: _deviceName, address: address);
-  }
+  Widget _buildCurrentTab(BuildContext context) {
+    final pages = <Widget>[
+      ColoredBox(
+        color: AppColor.bg,
+        child: _HomeTab(
+          w: context.screenWidth,
+          h: context.screenHeight,
+          portrait: context.isPortrait,
+          deviceName: _deviceName,
+          diffPressure: diffPressure,
+          power1: power1,
+          power2: power2,
+          operationTime: operationTime,
+          runMode: runMode,
+          fanFreq: fanFreq,
+          pulseDiff: pulseDiff,
+          solCount: solCount,
+          motorStatus: motorStatus,
+          pulseStatus: pulseStatus,
+          pulseColor: pulseColor,
+          alarmCount: alarmCount,
+          filterTime: filterTime,
+          filterCount: filterCount,
+          activeSolValveNo: activeSolValveNo,
+          dpHighLimit: dpHighLimit,
+          dpHighAlarmDelay: dpHighAlarmDelay,
+          dpLowLimit: dpLowLimit,
+          dpLowAlarmDelay: dpLowAlarmDelay,
+          powerLimit: powerLimit,
+          powerDiff: powerDiff,
+          readRegister: readRegister,
+          writeRegister: writeRegister,
+          onToggleRun: _toggleRun,
+          onToggleBuzzer: _toggleBuzzer,
+        ),
+      ),
+      FrequencySettingPage(
+        readRegister: (addr) => readRegister(addr),
+        writeRegister: (addr, val) => writeRegister(addr, val),
+      ),
+      PulseSettingPage(
+        readRegister: (addr) => readRegister(addr),
+        writeRegister: (addr, val) => writeRegister(addr, val),
+      ),
+      AlarmSettingPage(
+        readRegister: (addr) => readRegister(addr),
+        writeRegister: (addr, val) => writeRegister(addr, val),
+      ),
+      OptionSettingPage(
+        readRegister: (addr) => readRegister(addr),
+        writeRegister: (addr, val) => writeRegister(addr, val),
+        onRunModeChanged: (label) {
+          if (!mounted) return;
+          setState(() {
+            runMode = label; // 홈 탭 표시 갱신
+          });
+        },
+      ),
+    ];
 
+    return pages[_currentIndex];
+  }
 
   @override
   Widget build(BuildContext context) {
-
     // 화면 크기
     final w = context.screenWidth;
     final h = context.screenHeight;
@@ -367,44 +495,11 @@ class _MainPageState extends State<MainPage> {
     final portrait = context.isPortrait;
 
     final alarmAt = context.select<ConnectionRegistry, DateTime?>(
-          (r) => r.stateOf(_host, _unitId).alarmAt,
+      (r) => r.stateOf(_host, _unitId).alarmAt,
     );
-
-
-
-    // 모터 실행 토글 함수
-    Future<void> _toggleRun() async {
-      try {
-        if (motorStatus) {
-          await writeRegister(0, 0); // 정지
-        } else {
-          await writeRegister(0, 1); // 운전
-        }
-        if (!mounted) return;
-        setState(() {
-          motorStatus = !motorStatus;
-        });
-      } catch (e) {
-        debugPrint('토글 실패: $e');
-      }
-    }
-
-    // 부저 함수
-    Future<void> _toggleBuzzer() async {
-      try{
-        if (!mounted) return;
-        await writeRegister(1, 1);
-      }
-      catch(e){
-        debugPrint('쓰기 실패: $e');
-      }
-    }
-
-
 
     return Scaffold(
       backgroundColor: AppColor.bg,
-
       appBar: AppBar(
         backgroundColor: AppColor.duBlue,
         centerTitle: true,
@@ -440,9 +535,13 @@ class _MainPageState extends State<MainPage> {
                         Align(
                           alignment: Alignment.center,
                           child: Icon(
-                            _globalAlarmOpenCount > 0 ? Icons.notifications_on : Icons.notifications,
+                            _globalAlarmOpenCount > 0
+                                ? Icons.notifications_on_outlined
+                                : Icons.notifications_none,
                             size: 30,
-                            color: _globalAlarmOpenCount > 0 ? Colors.red : Colors.white,
+                            color: _globalAlarmOpenCount > 0
+                                ? Colors.red
+                                : Colors.white,
                           ),
                         ),
                         // 알람 개수
@@ -451,12 +550,18 @@ class _MainPageState extends State<MainPage> {
                             right: -2,
                             top: -2,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1.5,
+                              ),
                               constraints: const BoxConstraints(minWidth: 18),
                               decoration: BoxDecoration(
                                 color: Colors.red,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.white, width: 1.2),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1.2,
+                                ),
                               ),
                               child: Text(
                                 _globalAlarmOpenCount.toString(),
@@ -501,7 +606,10 @@ class _MainPageState extends State<MainPage> {
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
                         AppConst.version,
-                        style: const TextStyle(color: Colors.white, fontSize: 11),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ],
@@ -513,88 +621,57 @@ class _MainPageState extends State<MainPage> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
         selectedItemColor: AppColor.duBlue,
         currentIndex: _currentIndex,
-          onTap: (i) async {
-            if (i == _currentIndex) return;
-            setState(() => _currentIndex = i);
-            // 홈(메인) 탭으로 돌아올 때 최신값 재읽기
-            if (i == 0) {
-              await _readOnEnter();
-            }
-          },
+        onTap: (i) async {
+          if (i == _currentIndex) return;
+          setState(() => _currentIndex = i);
+          // 홈(메인) 탭으로 돌아올 때 최신값 재읽기
+          if (i == 0) {
+            await _readOnEnter();
+          }
+        },
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: '홈'),
           BottomNavigationBarItem(icon: Icon(Icons.tune), label: '주파수 설정'),
           BottomNavigationBarItem(icon: Icon(Symbols.valve), label: '펄스 설정'),
-          BottomNavigationBarItem(icon: Icon(Symbols.notification_settings), label: '알람 설정'),
-          BottomNavigationBarItem(icon: Icon(Icons.handyman_outlined), label: '옵션 설정'),
-        ]
+          BottomNavigationBarItem(
+            icon: Icon(Symbols.notification_settings),
+            label: '알람 설정',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.handyman_outlined),
+            label: '옵션 설정',
+          ),
+        ],
       ),
       body: Stack(
         children: [
-          IndexedStack(
-            index: _currentIndex,
-            children: [
-              _HomeTab(
-                w: context.screenWidth,
-                h: context.screenHeight,
-                portrait: context.isPortrait,
-                deviceName: _deviceName,
-                diffPressure: diffPressure,
-                power1: power1,
-                power2: power2,
-                operationTime: operationTime,
-                runMode: runMode,
-                fanFreq: fanFreq,
-                pulseDiff: pulseDiff,
-                solCount: solCount,
-                motorStatus: motorStatus,
-                pulseStatus: pulseStatus,
-                pulseColor: pulseColor,
-                alarmCount: alarmCount,
-                filterTime: filterTime,
-                filterCount: filterCount,
-                activeSolValveNo: activeSolValveNo,
-                dpHighLimit: dpHighLimit,
-                dpHighAlarmDelay: dpHighAlarmDelay,
-                dpLowLimit: dpLowLimit,
-                dpLowAlarmDelay: dpLowAlarmDelay,
-                powerLimit: powerLimit,
-                powerDiff: powerDiff,
-
-                readRegister: readRegister,
-                writeRegister: writeRegister,
-
-                onToggleRun: _toggleRun,        // MainPage의 함수 전달
-                onToggleBuzzer: _toggleBuzzer,  // MainPage의 함수 전달
-              ),
-              FrequencySettingPage(
-                readRegister: (addr) => readRegister(addr),
-                writeRegister: (addr, val) => writeRegister(addr, val),
-              ),  // 주파수 설정 탭
-              PulseSettingPage(
-                readRegister: (addr) => readRegister(addr),
-                writeRegister: (addr, val) => writeRegister(addr, val),
-              ),      // 펄스 설정 탭
-              AlarmSettingPage(              // 알람 설정 탭
-                readRegister: (addr) => readRegister(addr),
-                writeRegister: (addr, val) => writeRegister(addr, val),
-              ),
-              OptionSettingPage(
-                readRegister: (addr) => readRegister(addr),
-                writeRegister: (addr, val) => writeRegister(addr, val),
-                onRunModeChanged: (label) {           // ⬅ 추가
-                  if (!mounted) return;
-                  setState(() { runMode = label; });  // 홈 탭의 표시 즉시 갱신
+          PageTransitionSwitcher(
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder:
+                (
+                  Widget child,
+                  Animation<double> animation,
+                  Animation<double> secondaryAnimation,
+                ) {
+                  return SharedAxisTransition(
+                    animation: animation,
+                    secondaryAnimation: secondaryAnimation,
+                    transitionType: SharedAxisTransitionType.horizontal,
+                    child: child,
+                  );
                 },
-              ),     // 옵션 설정 탭
-            ],
+            child: KeyedSubtree(
+              key: ValueKey<int>(_currentIndex),
+              child: _buildCurrentTab(context),
+            ),
           ),
-          if (_loading && _currentIndex == 0) const _LoadingCover()
+
+          if (_loading && _currentIndex == 0) const _LoadingCover(),
         ],
       ),
-
     );
   }
 }
@@ -635,8 +712,18 @@ class _HomeTab extends StatelessWidget {
   final double w, h;
   final bool portrait;
   final String deviceName;
-  final int diffPressure, operationTime, fanFreq, pulseDiff, solCount, alarmCount;
-  final int dpHighLimit, dpHighAlarmDelay, dpLowLimit, dpLowAlarmDelay, powerLimit, powerDiff;
+  final int diffPressure,
+      operationTime,
+      fanFreq,
+      pulseDiff,
+      solCount,
+      alarmCount;
+  final int dpHighLimit,
+      dpHighAlarmDelay,
+      dpLowLimit,
+      dpLowAlarmDelay,
+      powerLimit,
+      powerDiff;
   final int filterTime;
   final int filterCount;
   final double power1, power2;
@@ -654,7 +741,7 @@ class _HomeTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-          child: Padding(
+        child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -662,10 +749,18 @@ class _HomeTab extends StatelessWidget {
               // 운전 조작 관련 패널
               Container(
                 alignment: Alignment.center,
-                margin: EdgeInsets.symmetric(horizontal: w*0.02, vertical: w*0.02),
+                margin: EdgeInsets.symmetric(
+                  horizontal: w * 0.02,
+                  vertical: w * 0.02,
+                ),
                 decoration: BoxDecoration(
+
                   color: motorStatus ? AppColor.duBlue : Colors.white,
-                  border: Border.all(color: AppColor.duBlue, strokeAlign: BorderSide.strokeAlignCenter, width: 2),
+                  border: Border.all(
+                    color: AppColor.duBlue,
+                    strokeAlign: BorderSide.strokeAlignCenter,
+                    width: 2,
+                  ),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
@@ -675,24 +770,52 @@ class _HomeTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                child:
-                AspectRatio(
-                  aspectRatio: portrait ? 1 : 16/9,
-                  child:
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center, //박스 내 가로축 정렬상태
-                      children: [
-                        Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,//박스 내 세로축 정렬상태 (간격 균등 배치)
+                child: AspectRatio(
+                  aspectRatio: portrait ? 1 : 16 / 9,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    //박스 내 가로축 정렬상태
+                    children: [
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        //박스 내 세로축 정렬상태 (간격 균등 배치)
                         children: [
-                          Text("$deviceName [Current Device]", style: TextStyle(fontSize: w * 0.04, fontWeight: FontWeight.w500, color: motorStatus ? Colors.white : AppColor.duBlue,)),
+                          Text(
+                            "$deviceName [Current Device]",
+                            style: TextStyle(
+                              fontSize: w * 0.04,
+                              fontWeight: FontWeight.w500,
+                              color: motorStatus
+                                  ? Colors.white
+                                  : AppColor.duBlue,
+                            ),
+                          ),
                           SizedBox(
                             width: w * 0.8,
-                            child: Row( // 운전시간 및 판넬 모드
+                            child: Row(
+                              // 운전시간 및 판넬 모드
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text("운전 시간: $operationTime H", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w300, color: motorStatus ? Colors.white : Colors.black),),
-                                Text("모드: $runMode", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w300, color: motorStatus ? Colors.white : Colors.black)),
+                                Text(
+                                  "운전 시간: $operationTime H",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w300,
+                                    color: motorStatus
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
+                                ),
+                                Text(
+                                  "모드: $runMode",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w300,
+                                    color: motorStatus
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -703,12 +826,14 @@ class _HomeTab extends StatelessWidget {
                             children: [
                               // 차압 및 펄스 설정
                               GestureDetector(
-                                onTap:(){
+                                onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => DpDetailPage(
-                                        readRegister: (addr) => readRegister(addr),
-                                        writeRegister: (addr, val) => writeRegister(addr, val),
+                                        readRegister: (addr) =>
+                                            readRegister(addr),
+                                        writeRegister: (addr, val) =>
+                                            writeRegister(addr, val),
                                       ),
                                     ),
                                   );
@@ -716,35 +841,73 @@ class _HomeTab extends StatelessWidget {
                                 child: Container(
                                   width: w * 0.6,
                                   height: portrait ? h * 0.14 : h * 0.4,
-                                  margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 2),
-                                  decoration: BoxDecoration(
-                                      border:Border.all(color: motorStatus ? Colors.white : AppColor.duBlue)
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 0,
+                                    vertical: 2,
                                   ),
-                                  child:
-                                  Column(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : AppColor.duBlue,
+                                    ),
+                                  ),
+                                  child: Column(
                                     spacing: 0.1,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
                                         children: [
-                                          Icon(Icons.circle,
-                                              size: 12,
-                                              color: pulseColor),
-                                          SizedBox(width: 2,),
-                                          Text(pulseStatus, style:TextStyle(fontSize: 11, fontWeight: FontWeight.w100 ,color: motorStatus ? Colors.white : Colors.black)),
-                                          SizedBox(width: 2,)
+                                          Icon(
+                                            Icons.circle,
+                                            size: 12,
+                                            color: pulseColor,
+                                          ),
+                                          SizedBox(width: 2),
+                                          Text(
+                                            pulseStatus,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w100,
+                                              color: motorStatus
+                                                  ? Colors.white
+                                                  : Colors.black,
+                                            ),
+                                          ),
+                                          SizedBox(width: 2),
                                         ],
                                       ),
                                       Row(
                                         spacing: 0.001,
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.baseline,
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
                                           const SizedBox(width: 1),
-                                          Text("$diffPressure", style: TextStyle(fontFamily: "Digital", fontSize: 55, color: motorStatus ? Colors.white : AppColor.duBlue),),
-                                          Text("mmAq", style: TextStyle(fontSize:13, fontWeight: FontWeight.w400, color: motorStatus ? Colors.white : AppColor.duBlue))
+                                          Text(
+                                            "$diffPressure",
+                                            style: TextStyle(
+                                              fontFamily: "Digital",
+                                              fontSize: 55,
+                                              color: motorStatus
+                                                  ? Colors.white
+                                                  : AppColor.duBlue,
+                                            ),
+                                          ),
+                                          Text(
+                                            "mmAq",
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w400,
+                                              color: motorStatus
+                                                  ? Colors.white
+                                                  : AppColor.duBlue,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
@@ -754,12 +917,14 @@ class _HomeTab extends StatelessWidget {
 
                               // 전류
                               GestureDetector(
-                                onTap:(){
+                                onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder: (_) => PowerDetailPage(
-                                        readRegister: (addr) => readRegister(addr),
-                                        writeRegister: (addr, val) => writeRegister(addr, val),
+                                        readRegister: (addr) =>
+                                            readRegister(addr),
+                                        writeRegister: (addr, val) =>
+                                            writeRegister(addr, val),
                                       ),
                                     ),
                                   );
@@ -767,30 +932,78 @@ class _HomeTab extends StatelessWidget {
                                 child: Container(
                                   width: w * 0.3,
                                   height: portrait ? h * 0.14 : h * 0.4,
-                                  margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    border:Border.all(color: motorStatus ? Colors.white : AppColor.duBlue)
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 0,
+                                    vertical: 2,
                                   ),
-                                  child:
-                                  Column( // 전류 표시
-                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : AppColor.duBlue,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    // 전류 표시
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceAround,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
-                                          Text("$power1", style: TextStyle(fontFamily: "Digital", fontSize: 32, color: motorStatus ? Colors.white : AppColor.duBlue),),
-                                          Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : AppColor.duBlue))
+                                          Text(
+                                            "$power1",
+                                            style: TextStyle(
+                                              fontFamily: "Digital",
+                                              fontSize: 32,
+                                              color: motorStatus
+                                                  ? Colors.white
+                                                  : AppColor.duBlue,
+                                            ),
+                                          ),
+                                          Text(
+                                            "A",
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w600,
+                                              color: motorStatus
+                                                  ? Colors.white
+                                                  : AppColor.duBlue,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
-                                          Text("$power2", style: TextStyle(fontFamily: "Digital", fontSize: 32, color: motorStatus ? Colors.white : AppColor.duBlue),),
-                                          Text("A", style: TextStyle(fontSize:20, fontWeight: FontWeight.w600, color: motorStatus ? Colors.white : AppColor.duBlue))
+                                          Text(
+                                            "$power2",
+                                            style: TextStyle(
+                                              fontFamily: "Digital",
+                                              fontSize: 32,
+                                              color: motorStatus
+                                                  ? Colors.white
+                                                  : AppColor.duBlue,
+                                            ),
+                                          ),
+                                          Text(
+                                            "A",
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w600,
+                                              color: motorStatus
+                                                  ? Colors.white
+                                                  : AppColor.duBlue,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
@@ -805,46 +1018,110 @@ class _HomeTab extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.start,
                             //crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Image.asset(motorStatus ? 'assets/images/fan_on.gif' : 'assets/images/fan_off.png', width: 60,
-                                color: motorStatus? Colors.white : Colors.black54,
-                                colorBlendMode: BlendMode.srcIn,),
-                              SizedBox(width: w* 0.03),
+                              Image.asset(
+                                motorStatus
+                                    ? 'assets/images/fan_on.gif'
+                                    : 'assets/images/fan_off.png',
+                                width: 60,
+                                color: motorStatus
+                                    ? Colors.white
+                                    : Colors.black54,
+                                colorBlendMode: BlendMode.srcIn,
+                              ),
+                              SizedBox(width: w * 0.03),
                               //주파수 표시
                               Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text("운전 주파수", style: TextStyle(fontSize: 12, color: motorStatus ? Colors.white : AppColor.duBlue, fontWeight: FontWeight.w600),),
-                                  Text(" $fanFreq Hz", style: TextStyle(fontSize: 12, color: motorStatus ? Colors.white : AppColor.duBlue),)
+                                  Text(
+                                    "운전 주파수",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : AppColor.duBlue,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    " $fanFreq Hz",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : AppColor.duBlue,
+                                    ),
+                                  ),
                                 ],
                               ),
-                              SizedBox(width: w* 0.01),
-                              Image.asset(pulseStatus == "펄스 정지" ? 'assets/images/c_filter_off.png' : 'assets/images/c_filter_on.gif', width: 68,
-                                color: pulseStatus == "펄스 정지" ? (motorStatus ? Colors.white : Colors.black54) : (motorStatus ? Colors.white : AppColor.duBlue),
-                                colorBlendMode: BlendMode.srcIn,),
-                              SizedBox(width: w* 0.03),
+                              SizedBox(width: w * 0.01),
+                              Image.asset(
+                                pulseStatus == "펄스 정지"
+                                    ? 'assets/images/c_filter_off.png'
+                                    : 'assets/images/c_filter_on.gif',
+                                width: 68,
+                                color: pulseStatus == "펄스 정지"
+                                    ? (motorStatus
+                                          ? Colors.white
+                                          : Colors.black54)
+                                    : (motorStatus
+                                          ? Colors.white
+                                          : AppColor.duBlue),
+                                colorBlendMode: BlendMode.srcIn,
+                              ),
+                              SizedBox(width: w * 0.03),
                               //펄싱 정보 표시
                               //#27 자동 펄싱 동작 개시 차압값
                               Column(
                                 children: [
                                   Container(
                                     decoration: BoxDecoration(
-                                      color: motorStatus ? Colors.white : AppColor.duBlue,
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : AppColor.duBlue,
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                    child: Text("SOL $activeSolValveNo", style: TextStyle( fontSize: 10, color: motorStatus ? AppColor.duBlue : Colors.white,
-                                        fontWeight: FontWeight.w300),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 3,
+                                    ),
+                                    child: Text(
+                                      "SOL $activeSolValveNo",
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: motorStatus
+                                            ? AppColor.duBlue
+                                            : Colors.white,
+                                        fontWeight: FontWeight.w300,
+                                      ),
                                     ),
                                   ),
-                                  SizedBox(height: 4,),
-                                  Text("펄싱 차압", style: TextStyle(fontSize: 12, color: motorStatus ? Colors.white : AppColor.duBlue,
-                                      fontWeight: FontWeight.w400),textAlign: TextAlign.center,),
-                                  Text("$pulseDiff mmAq", style: TextStyle(fontSize: 10, color: motorStatus ? Colors.white : AppColor.duBlue)),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    "펄싱 차압",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : AppColor.duBlue,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  Text(
+                                    "$pulseDiff mmAq",
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : AppColor.duBlue,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
                           ),
-                          SizedBox(height: h* 0.005),
+                          SizedBox(height: h * 0.005),
                           // 운전 시작 버튼
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -855,14 +1132,18 @@ class _HomeTab extends StatelessWidget {
                                 width: w * 0.5,
                                 height: portrait ? h * 0.05 : h * 0.12,
 
-                                child:
-                                ElevatedButton(
+                                child: ElevatedButton(
                                   onPressed: onToggleRun,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: motorStatus ? Colors.white : AppColor.duBlue,
+                                    backgroundColor: motorStatus
+                                        ? Colors.white
+                                        : AppColor.duBlue,
                                     shadowColor: Colors.black,
                                     elevation: 2,
-                                    textStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 16),
+                                    textStyle: const TextStyle(
+                                      fontWeight: FontWeight.w400,
+                                      fontSize: 16,
+                                    ),
                                   ),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
@@ -870,19 +1151,27 @@ class _HomeTab extends StatelessWidget {
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(motorStatus ? Icons.stop : Icons.play_arrow,
-                                              size: 24,
-                                              color: motorStatus ? Colors.black : Colors.white),
+                                          Icon(
+                                            motorStatus
+                                                ? Icons.stop
+                                                : Icons.play_arrow,
+                                            size: 24,
+                                            color: motorStatus
+                                                ? Colors.black
+                                                : Colors.white,
+                                          ),
                                           const SizedBox(width: 4),
                                           Text(
                                             motorStatus ? '운전 정지' : '운전 시작',
                                             style: TextStyle(
                                               fontSize: 16,
-                                              color: motorStatus ? Colors.black : Colors.white,
+                                              color: motorStatus
+                                                  ? Colors.black
+                                                  : Colors.white,
                                             ),
                                           ),
                                         ],
-                                      )
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -892,15 +1181,19 @@ class _HomeTab extends StatelessWidget {
                                 width: w * 0.12,
                                 height: portrait ? h * 0.05 : h * 0.12,
                                 decoration: BoxDecoration(
-                                  color: motorStatus ? Colors.white : AppColor.duBlue,
+                                  color: motorStatus
+                                      ? Colors.white
+                                      : AppColor.duBlue,
                                   borderRadius: BorderRadius.circular(25),
                                 ),
-                                child:
-                                IconButton(
+                                child: IconButton(
                                   onPressed: onToggleBuzzer,
-                                  icon: Icon(Icons.notifications_off_outlined,
-                                      size: 20,
-                                      color: motorStatus ? Colors.black : Colors.white
+                                  icon: Icon(
+                                    Icons.notifications_off_outlined,
+                                    size: 20,
+                                    color: motorStatus
+                                        ? Colors.black
+                                        : Colors.white,
                                   ),
                                 ),
                               ),
@@ -910,9 +1203,7 @@ class _HomeTab extends StatelessWidget {
                       ),
                     ],
                   ),
-
                 ),
-
               ),
               // 게이지 그래프 (차압, 전류1, 전류2)
               Container(
@@ -928,16 +1219,41 @@ class _HomeTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                child:
-                Padding(
+                child: Padding(
                   padding: EdgeInsets.fromLTRB(0, 25, 0, 0),
-                  child:
-                  Row(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: GaugeTile(title: '차압',  valueStr: diffPressure.toString(), unit: 'mmAq', max: 500, size: w * 0.3, color: AppColor.duBlue)),
-                      Expanded(child: GaugeTile(title: '전류1', valueStr: power1.toString(),       unit: 'A',     max: 60, size: w * 0.3, color: AppColor.duBlue)),
-                      Expanded(child: GaugeTile(title: '전류2', valueStr: power2.toString(),       unit: 'A',     max: 60, size: w * 0.3, color: AppColor.duBlue)),
+                      Expanded(
+                        child: GaugeTile(
+                          title: '차압',
+                          valueStr: diffPressure.toString(),
+                          unit: 'mmAq',
+                          max: 500,
+                          size: w * 0.3,
+                          color: AppColor.duBlue,
+                        ),
+                      ),
+                      Expanded(
+                        child: GaugeTile(
+                          title: '전류1',
+                          valueStr: power1.toString(),
+                          unit: 'A',
+                          max: 60,
+                          size: w * 0.3,
+                          color: AppColor.duBlue,
+                        ),
+                      ),
+                      Expanded(
+                        child: GaugeTile(
+                          title: '전류2',
+                          valueStr: power2.toString(),
+                          unit: 'A',
+                          max: 60,
+                          size: w * 0.3,
+                          color: AppColor.duBlue,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -945,7 +1261,10 @@ class _HomeTab extends StatelessWidget {
 
               // 필터 정보 표시
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -957,39 +1276,73 @@ class _HomeTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                child:
-                Padding(
+                child: Padding(
                   padding: EdgeInsets.fromLTRB(0, 10, 0, 10),
-                  child:
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,//가로 균형 배치
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center, //가로 균형 배치
                     children: [
                       //SizedBox(width: w * 0.1,),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text("필터 사용 시간", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w300),),
+                          Text(
+                            "필터 사용 시간",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
                           Row(
                             textBaseline: TextBaseline.alphabetic,
                             crossAxisAlignment: CrossAxisAlignment.baseline,
                             children: [
-                              Text("$filterTime", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),),
-                              Text(" 시간", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w300),),
+                              Text(
+                                "$filterTime",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w300,
+                                ),
+                              ),
+                              Text(
+                                " 시간",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w300,
+                                ),
+                              ),
                             ],
                           ),
                         ],
                       ),
-                      SizedBox(width: w * 0.2,),
+                      SizedBox(width: w * 0.2),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text("필터 교체 횟수", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w300),),
+                          Text(
+                            "필터 교체 횟수",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
                           Row(
                             textBaseline: TextBaseline.alphabetic,
                             crossAxisAlignment: CrossAxisAlignment.baseline,
                             children: [
-                              Text("$filterCount", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w300),),
-                              Text(" 회", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w300),),
+                              Text(
+                                "$filterCount",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w300,
+                                ),
+                              ),
+                              Text(
+                                " 회",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w300,
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -998,21 +1351,13 @@ class _HomeTab extends StatelessWidget {
                   ),
                 ),
               ),
-
-
-
-
             ],
           ),
         ),
-        )
+      ),
     );
   }
 }
-
-
-
-
 
 class GaugeTile extends StatelessWidget {
   const GaugeTile({
@@ -1044,7 +1389,14 @@ class GaugeTile extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: TextStyle(fontSize: titleFont, fontWeight: FontWeight.w800, color: color)),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: titleFont,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
             SizedBox(
               height: h,
               child: SfRadialGauge(
@@ -1067,8 +1419,21 @@ class GaugeTile extends StatelessWidget {
                         widget: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(valueStr, style: TextStyle(fontWeight: FontWeight.bold, fontSize: valueFont, color: color)),
-                            Text(unit, style: TextStyle(fontSize: unitFont, color: color)),
+                            Text(
+                              valueStr,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: valueFont,
+                                color: color,
+                              ),
+                            ),
+                            Text(
+                              unit,
+                              style: TextStyle(
+                                fontSize: unitFont,
+                                color: color,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -1084,7 +1449,6 @@ class GaugeTile extends StatelessWidget {
   }
 }
 
-
 // 로딩 화면
 class _LoadingCover extends StatelessWidget {
   const _LoadingCover();
@@ -1098,7 +1462,7 @@ class _LoadingCover extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            CircularProgressIndicator(color: AppColor.duBlue,),
+            CircularProgressIndicator(color: AppColor.duBlue),
             SizedBox(height: 12),
             Text('연결 상태 확인 중...', style: TextStyle(fontSize: 14)),
           ],

@@ -231,7 +231,7 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                   },
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.white,
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColor.duRed,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),

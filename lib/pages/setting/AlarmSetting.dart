@@ -162,6 +162,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
             tiles: [
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,
+
                 onToggle: (v) => applyRegisterToggle(
                   context: context,
                   newValue: v,
@@ -170,6 +171,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
                   setLocalValue: (nv) => setState(() => motorReverse = nv),
                   errorText: '모터 역방향 알람 설정 실패',
                 ),
+
                 initialValue: motorReverse!,
                 leading: const Icon(Symbols.toys_fan_rounded),
                 title: Text('모터 역방향 알람'),

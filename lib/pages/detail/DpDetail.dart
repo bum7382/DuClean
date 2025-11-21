@@ -583,7 +583,7 @@ class _DpHistoryChartState extends State<_DpHistoryChart> {
                         dashArray: const [6, 4],
                         label: HorizontalLineLabel(
                           show: true,
-                          alignment: Alignment.topRight,
+                          alignment: Alignment.topLeft,
                           labelResolver: (_) =>
                           '저차압 ${widget.dpLowLimit} mmAq',
                           style: const TextStyle(

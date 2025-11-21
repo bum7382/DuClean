@@ -96,6 +96,9 @@ class ModbusManager {
     }
   }
 
+
+
+
   /// 🔹 한 기기의 차압/전류만 읽어서 히스토리에 넣는 내부 헬퍼
   Future<void> _pollDpAndPowerOnce(
       BuildContext context, {
@@ -274,6 +277,49 @@ class ModbusManager {
     return reg.value?.toInt();
   }
 
+  Future<List<int>?> readHoldingRange(
+      BuildContext context, {
+        required String host,
+        required int unitId,
+        required int startAddress,
+        required int count,
+        required String name,
+      }) 
+  async {
+    try {
+      final c = await ensureConnected(
+        context,
+        host: host,
+        unitId: unitId,
+        name: name,
+      );
+
+      // startAddress ~ startAddress+count-1 까지 한 번에 읽기
+      final group = ModbusElementsGroup(
+        List.generate(
+          count,
+              (i) => ModbusUint16Register(
+            name: 'Holding(${startAddress + i})',
+            type: ModbusElementType.holdingRegister, // FC03
+            address: startAddress + i,
+          ),
+        ),
+      );
+
+      await c.send(group.getReadRequest());
+
+      // 값만 뽑아서 List<int>로 반환
+      return List<int>.generate(
+        count,
+            (i) => (group[i] as ModbusUint16Register).value?.toInt() ?? 0,
+      );
+    } catch (e) {
+      debugPrint('readHoldingRange error (host=$host, unitId=$unitId, start=$startAddress, count=$count): $e');
+      return null;
+    }
+  }
+
+
   Future<bool> writeHolding(
       BuildContext context, {
         required String host,
@@ -311,47 +357,79 @@ class _AlarmPoller {
   Timer? _t;
   int _lastCode = -1; // 미정 상태
 
+  int _pendingCode = 0;      // 지금 연속으로 관측 중인 코드
+  int _pendingCount = 0;     // 같은 코드가 연속으로 몇 번 나왔는지
+
   void start() {
     _t?.cancel();
     _t = Timer.periodic(interval, (_) async {
       try {
         final c = await ensure(verifyAddress: 0);
 
-        // 입력레지스터 #25: 알람 코드
+        // 입력레지스터 #25: 알람 코드 (0~7)
         final reg = ModbusUint16Register(
           name: 'in_25',
           type: ModbusElementType.inputRegister, // FC04
           address: 25,
         );
         await c.send(reg.getReadRequest());
-        final cur = reg.value?.toInt() ?? 0;
 
+        final raw = reg.value?.toInt() ?? 0;
+        int cur = raw;
+
+
+        // 최초 한 번은 기준값만 잡고 끝
         if (_lastCode == -1) {
           _lastCode = cur;
+          _pendingCode = cur;
+          _pendingCount = 1;
           return;
         }
 
-        if (_lastCode != cur) {
+        // 🔹 현재 읽은 값(cur)이 이전에 관측 중인 pending 값과 같은지 체크
+        if (cur == _pendingCode) {
+          _pendingCount++;
+        } else {
+          _pendingCode = cur;
+          _pendingCount = 1;
+        }
+
+        // 알람 해제: "현재 상태"가 알람이었고, 값이 0으로 떨어졌을 때 즉시 처리
+        if (cur == 0 && _lastCode > 0) {
           final nowMs = DateTime.now().millisecondsSinceEpoch;
-          if (cur > 0) {
-            // 알람 발생
-            await AlarmStore.appendOccurrence(
-              host: host, unitId: unitId, name: name,
-              code: cur, tsMs: nowMs,
-            );
-          } else if (_lastCode > 0) {
-            // 알람 해제
-            await AlarmStore.appendClear(
-              host: host, unitId: unitId, code: _lastCode, clearedAtMs: nowMs,
-            );
-          }
+          debugPrint('[ALARM_CLEAR] $host#$unitId name=$name code=$_lastCode at=$nowMs');
+          await AlarmStore.appendClear(
+            host: host,
+            unitId: unitId,
+            code: _lastCode,
+            clearedAtMs: nowMs,
+          );
+          _lastCode = 0;
+          // 해제 후 pending 상태도 0으로 초기화
+          _pendingCode = 0;
+          _pendingCount = 1;
+          return;
+        }
+
+        // 같은 코드가 1번 연속 나올 때만 발생으로 인정
+        const int kMinStableCount = 2; // 2번(=2초) 연속 관측
+        if (cur > 0 && _pendingCount >= kMinStableCount && _lastCode != cur) {
+          final nowMs = DateTime.now().millisecondsSinceEpoch;
+          await AlarmStore.appendOccurrence(
+            host: host,
+            unitId: unitId,
+            name: name,
+            code: cur,
+            tsMs: nowMs,
+          );
           _lastCode = cur;
         }
-      } catch (_) {
-        // 통신 실패는 조용히 무시(다음 틱 재시도)
+
+      } catch (e) {
       }
     });
   }
+
 
   void stop() {
     _t?.cancel();

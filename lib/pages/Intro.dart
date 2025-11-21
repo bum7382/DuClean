@@ -40,8 +40,23 @@ class MyApp extends StatelessWidget {
         textSelectionTheme: const TextSelectionThemeData(
           selectionHandleColor: AppColor.duBlue,
         ),
+        switchTheme: SwitchThemeData(
+          trackColor: WidgetStateProperty.resolveWith((states) {
+            if (!states.contains(WidgetState.selected)) {
+              return Colors.grey.shade300;
+            }
+            return null;
+          }),
+
+          thumbColor: WidgetStateProperty.resolveWith((states) {
+            if (!states.contains(WidgetState.selected)) {
+              return Colors.grey.shade500;
+            }
+            return null;
+          }),
+        ),
       ),
-      routes: Routes.routes,
+      onGenerateRoute: Routes.onGenerateRoute,
       home: const IntroPage(),
     );
   }
