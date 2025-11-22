@@ -2,11 +2,98 @@
 import 'package:flutter/material.dart';
 
 class AppColor {
-  static const duBlue = Color(0xFF0168B7);
+  // 일반 색
+  static const bg = Color(0xFFFDFDFD);
+  static const duBlue = Color(0xFF0168B6);
   static const duRed = Color(0xFFCF001F);
-  static const duGreen = Color(0xFF009E42);
+  static const duGreen = Color(0xFF16AB5A);
+  static const duGrey = Color(0xFF6B7B95);
+  static const duBlack = Color(0xFF3A4A62);
 
-  static const bg = Color(0xfff6f6f6);
+  // 그라디언트 색
+  static const duGreyGra  = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [
+      Color(0xFFF0F4F9),
+      Color(0xFFE1E8F0),
+    ],
+  );
+
+  static const duBlueGra  = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFF0169B7),
+      Color(0xFF0387D1),
+    ],
+  );
+
+  static const duBlueGraLine  = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [
+      Color(0xFF0169B7),
+      Color(0xFF0387D1),
+    ],
+  );
+
+  static const duGreenGra  = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFF16AB5A),
+      Color(0xFF00BA77),
+    ],
+  );
+
+  static const duGreenGraLine  = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [
+      Color(0xFF16AB5A),
+      Color(0xFF00BA77),
+    ],
+  );
+
+  static const duMixGra  = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [
+      Color(0xFF177AC2),
+      Color(0xFF00BA77),
+    ],
+  );
+
+  // 그림자 색
+  static const duGreySha = <BoxShadow>[
+    BoxShadow(
+      color: Color(0x40000000),
+      spreadRadius: -6,
+      blurRadius: 20,
+      offset: Offset(0, 4),
+    ),
+  ];
+
+  static const duBlueSha = <BoxShadow>[
+    BoxShadow(
+      color: Color(0x99177AC2),
+      spreadRadius: -6,
+      blurRadius: 20,
+      offset: Offset(0, 4),
+    ),
+  ];
+
+  static const duGreenSha = <BoxShadow>[
+    BoxShadow(
+      color: Color(0x802BC735),
+      spreadRadius: -6,
+      blurRadius: 20,
+      offset: Offset(0, 4),
+    ),
+  ];
+
+
 }
 
 class AppConst {

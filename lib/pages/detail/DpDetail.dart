@@ -6,7 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:duclean/common/context_extensions.dart';
 
 import 'package:duclean/providers/dp_history.dart';
-import 'package:duclean/pages/Main.dart';
+import 'package:duclean/res/customWidget.dart';
 import 'package:duclean/providers/selected_device.dart';
 
 import 'package:duclean/res/settingWidget.dart';

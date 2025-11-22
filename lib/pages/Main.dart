@@ -21,11 +21,12 @@ import 'package:duclean/pages/setting/PulseSetting.dart';
 import 'package:duclean/pages/detail/DpDetail.dart';
 import 'package:duclean/pages/detail/PowerDetail.dart';
 
-import 'package:syncfusion_flutter_gauges/gauges.dart';
+
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:duclean/services/alarm_store.dart';
 
 import 'package:animations/animations.dart';
+import 'package:duclean/res/customWidget.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -110,7 +111,7 @@ class _MainPageState extends State<MainPage> {
   var powerLimit = 0; // 과전류 설정
   var powerDiff = 0; // 전류 편차
 
-  bool _loading = true;
+  bool _loading = false;
   int _pollFailCount = 0;
   static const int _failToShowLoading = 2;
 
@@ -1359,95 +1360,7 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
-class GaugeTile extends StatelessWidget {
-  const GaugeTile({
-    super.key,
-    required this.title,
-    required this.valueStr,
-    required this.unit,
-    required this.max,
-    required this.size,
-    required this.color,
-  });
 
-  final String title, valueStr, unit;
-  final double max, size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = double.tryParse(valueStr) ?? 0;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = size * 0.8;
-        final axis = size * 0.13;
-        final titleFont = size * 0.10;
-        final valueFont = size * 0.10;
-        final unitFont = size * 0.075;
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: titleFont,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
-            ),
-            SizedBox(
-              height: h,
-              child: SfRadialGauge(
-                axes: <RadialAxis>[
-                  RadialAxis(
-                    startAngle: 180,
-                    endAngle: 0,
-                    minimum: 0,
-                    maximum: max,
-                    showLabels: false,
-                    showTicks: false,
-                    axisLineStyle: AxisLineStyle(thickness: axis),
-                    pointers: <GaugePointer>[
-                      RangePointer(value: value, color: color, width: axis),
-                    ],
-                    annotations: <GaugeAnnotation>[
-                      GaugeAnnotation(
-                        angle: -90,
-                        positionFactor: 0.1,
-                        widget: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              valueStr,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: valueFont,
-                                color: color,
-                              ),
-                            ),
-                            Text(
-                              unit,
-                              style: TextStyle(
-                                fontSize: unitFont,
-                                color: color,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
 
 // 로딩 화면
 class _LoadingCover extends StatelessWidget {

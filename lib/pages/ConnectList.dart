@@ -133,7 +133,8 @@ class _ConnectListPageState extends State<ConnectListPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('기기에 연결되어 있지 않습니다. 설정에서 연결 후 접속하세요.')),
       );
-      Navigator.of(context).pushNamed(Routes.connectSettingPage);
+      //Navigator.of(context).pushNamed(Routes.connectSettingPage);
+      Navigator.of(context).pushNamed(Routes.mainPage);
     }
     else {
       Navigator.of(context).pushNamed(Routes.mainPage);

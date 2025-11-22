@@ -7,9 +7,9 @@ import 'package:duclean/common/context_extensions.dart';
 
 import 'package:duclean/providers/power_history.dart';
 import 'package:duclean/providers/selected_device.dart';
-import 'package:duclean/pages/Main.dart'; // GaugeTile
+import 'package:duclean/res/customWidget.dart';
 import 'package:settings_ui/settings_ui.dart';
-import 'package:duclean/res/settingWidget.dart'; // showRegisterNumberEditor가 여기 있다고 가정
+import 'package:duclean/res/settingWidget.dart';
 
 class PowerDetailPage extends StatefulWidget {
   const PowerDetailPage({

@@ -11,6 +11,7 @@ import 'package:duclean/providers/power_history.dart';
 import 'dart:math';
 
 
+
 void main() {
   runApp(
     MultiProvider(
