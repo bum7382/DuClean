@@ -111,6 +111,7 @@ class _MainPageState extends State<MainPage> {
   var powerLimit = 0; // 과전류 설정
   var powerDiff = 0; // 전류 편차
 
+  bool pulseDescription = false;  // 펄싱 차압 <-> 솔 밸브
   bool _loading = false;
   int _pollFailCount = 0;
   static const int _failToShowLoading = 2;
@@ -414,6 +415,13 @@ class _MainPageState extends State<MainPage> {
   }
 
   // 부저 함수
+  void _togglePulse() {
+    setState(() {
+      pulseDescription = !pulseDescription; // 현재 상태를 반전시킵니다.
+    });
+  }
+
+  // 펄스 정보
   Future<void> _toggleBuzzer() async {
     try {
       if (!mounted) return;
@@ -453,10 +461,12 @@ class _MainPageState extends State<MainPage> {
           dpLowAlarmDelay: dpLowAlarmDelay,
           powerLimit: powerLimit,
           powerDiff: powerDiff,
+          pulseDescription: pulseDescription,
           readRegister: readRegister,
           writeRegister: writeRegister,
           onToggleRun: _toggleRun,
           onToggleBuzzer: _toggleBuzzer,
+          onTogglePulse: _togglePulse,
         ),
       ),
       FrequencySettingPage(
@@ -543,6 +553,7 @@ class _MainPageState extends State<MainPage> {
                             color: _globalAlarmOpenCount > 0
                                 ? Colors.red
                                 : Colors.white,
+                            weight: 100,
                           ),
                         ),
                         // 알람 개수
@@ -700,6 +711,8 @@ class _HomeTab extends StatelessWidget {
     required this.activeSolValveNo,
     required this.onToggleRun,
     required this.onToggleBuzzer,
+    required this.onTogglePulse,
+    required this.pulseDescription,
     required this.dpHighLimit,
     required this.dpHighAlarmDelay,
     required this.dpLowLimit,
@@ -729,11 +742,12 @@ class _HomeTab extends StatelessWidget {
   final int filterCount;
   final double power1, power2;
   final String runMode, pulseStatus;
-  final bool motorStatus;
+  final bool motorStatus, pulseDescription;
   final Color pulseColor;
   final int activeSolValveNo;
   final Future<void> Function() onToggleRun;
   final Future<void> Function() onToggleBuzzer;
+  final void Function() onTogglePulse;
 
   final Future<int?> Function(int address) readRegister;
   final Future<bool> Function(int address, int value) writeRegister;
@@ -745,9 +759,696 @@ class _HomeTab extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: portrait ? h * 0.03 : h * 0.06,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 운전 조작 관련 패널
+              SizedBox(),
+              // 메인 정보 컨테이너
+              BgContainer(
+                width: w * 0.9,
+                height: portrait ? h * 0.514 : h * 2,
+                child:
+                Column(
+                  spacing: portrait ? h * 0.01 : h * 0.05,
+                  children: [
+                    // 운전시간 및 모드
+                    Padding(
+                      padding: EdgeInsetsGeometry.only(top: portrait ? h * 0.04 : h * 0.1),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        spacing: w * 0.38,
+                        children: [
+                          Align(
+                            alignment: AlignmentGeometry.centerLeft,
+                            child: Column(
+                              spacing: h * 0.002,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "운전 시간",
+                                  style: TextStyle(
+                                    fontSize: w * 0.03,
+                                    letterSpacing: -0.2,
+                                    fontWeight: FontWeight.w300,
+                                    color: motorStatus
+                                        ? AppColor.duGrey
+                                        : AppColor.duGrey,
+                                  ),
+                                ),
+                                Text(
+                                  "${operationTime}H",
+                                  style: TextStyle(
+                                    fontSize: w * 0.05,
+                                    fontWeight: FontWeight.w500,
+                                    color: motorStatus
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Align(
+                            alignment: AlignmentGeometry.centerRight,
+                            child: Column(
+                              spacing: h * 0.002,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  "모드",
+                                  style: TextStyle(
+                                    fontSize: w * 0.03,
+                                    fontWeight: FontWeight.w300,
+                                    color: motorStatus
+                                        ? AppColor.duGrey
+                                        : AppColor.duGrey,
+                                  ),
+                                ),
+                                RoundContainer(
+                                  height: portrait ? h * 0.03 : h * 0.12,
+                                  gradient: AppColor.duMixGra,
+                                  padding: EdgeInsets.symmetric(horizontal: w * 0.02, vertical: 4.5),
+                                  borderRadius: 18,
+                                  child:
+                                    Text(
+                                      "$runMode 통신(RS485)",
+                                      style: TextStyle(
+                                        fontSize: w * 0.03,
+                                        fontWeight: FontWeight.w500,
+                                        color: motorStatus
+                                            ? Colors.white
+                                            : Colors.white
+                                      ),
+                                    ),
+                                )
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider( color: Color(0xFFE0E2E6), thickness: 1, indent: 20, endIndent: 20,),
+                    // 차압 및 전류
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: w * 0.07,
+                      children: [
+                        // 차압 컨테이너
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              PageRouteBuilder(
+                                pageBuilder: (context, animation, secondaryAnimation) => DpDetailPage(
+                                  readRegister: (addr) => readRegister(addr),
+                                  writeRegister: (addr, val) => writeRegister(addr, val),
+                                ),
+                                transitionDuration: const Duration(milliseconds: 250),
+                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  );
+                                },
+
+                              ),
+                            );
+                          },
+                          child: GreenContainer(
+                            width: w * 0.35,
+                            height: w * 0.35,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                // 펄스 모드 표시
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child:
+                                    Padding(
+                                      padding: EdgeInsets.only(right: w * 0.04),
+                                      child: TransContainer(
+                                      width: portrait ? w * 0.2 : w * 0.1,
+                                      height: portrait ? h * 0.03 : h * 0.06,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        spacing: w * 0.01,
+                                        children: [
+                                          Icon(
+                                            Icons.circle,
+                                            size: 12,
+                                            color: pulseColor,
+                                          ),
+                                          Text(
+                                            pulseStatus,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w400,
+                                              color: motorStatus
+                                                  ? Colors.black
+                                                  : Colors.white,
+                                            ),
+                                          )
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // 차압 표시
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Padding(
+                                    padding: EdgeInsets.only(left: w * 0.06),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "$diffPressure",
+                                          style: TextStyle(
+                                            fontSize: w * 0.11,
+                                            letterSpacing: -0.7,
+                                            color: motorStatus
+                                                ? AppColor.duBlue
+                                                : Colors.white,
+                                          ),
+                                        ),
+                                        Text(
+                                          "mmAq",
+                                          style: TextStyle(
+                                            fontSize: w * 0.03,
+                                            fontWeight: FontWeight.w400,
+                                            color: motorStatus
+                                                ? AppColor.duBlue
+                                                : Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // 전류 컨테이너
+                        InkWell(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              PageRouteBuilder(
+                                pageBuilder: (context, animation, secondaryAnimation) => PowerDetailPage(
+                                  readRegister: (addr) => readRegister(addr),
+                                  writeRegister: (addr, val) => writeRegister(addr, val),
+                                ),
+                                transitionDuration: const Duration(milliseconds: 250),
+                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  );
+                                },
+
+                              ),
+                            );
+                          },
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            spacing: h * 0.019,
+                            children: [
+                              // 전류1
+                              BlueContainer(
+                                width: w * 0.35,
+                                height: (w * 0.35 - h * 0.02) / 2,
+                                child: Stack(
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Padding(
+                                        padding: EdgeInsetsGeometry.only(left: w * 0.04),
+                                        child: Text(
+                                          "${power1}A",
+                                          style: TextStyle(
+                                            fontSize: w * 0.07,
+                                            letterSpacing: -0.7,
+                                            color: motorStatus ? AppColor.duBlue : Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                    Positioned(
+                                      right: w * 0.045,
+                                      bottom: h * 0.01,
+                                      child: Text(
+                                        "전류(1)",
+                                        style: TextStyle(
+                                          fontSize: w * 0.025,
+                                          letterSpacing: -0.5,
+                                          color: motorStatus ? AppColor.duBlue : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // 전류2
+                              BlueContainer(
+                                width: w * 0.35,
+                                height: (w * 0.35 - h * 0.02) / 2,
+                                child: Stack(
+                                  children: [
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Padding(
+                                        padding: EdgeInsetsGeometry.only(left: w * 0.04),
+                                        child: Text(
+                                          "${power2}A",
+                                          style: TextStyle(
+                                            fontSize: w * 0.07,
+                                            letterSpacing: -0.7,
+                                            color: motorStatus ? AppColor.duBlue : Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: w * 0.045,
+                                      bottom: h * 0.01,
+                                      child: Text(
+                                        "전류(2)",
+                                        style: TextStyle(
+                                          fontSize: w * 0.025,
+                                          letterSpacing: -0.5,
+                                          color: motorStatus ? AppColor.duBlue : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      ],
+                    ),
+                    SizedBox(),
+                    // 운전 주파수 및 펄싱 차압 / 동작 솔밸브
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: w * 0.07,
+                      children: [
+                        // 운전 주파수
+                        RoundContainer(
+                          width: w * 0.35,
+                          height: portrait ? h * 0.08 : h * 0.3,
+                          borderRadius: 10,
+                          color: Color(0xFFFEFEFE),
+                          shadow: AppColor.duGreySha,
+                          child:
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              spacing: w * 0.03,
+                              children: [
+                                BlueContainer(
+                                  width: w * 0.1,
+                                  height: w * 0.1,
+                                  radius: w * 0.02,
+                                  padding: EdgeInsetsGeometry.all(5),
+                                  child:
+                                    Image.asset(
+                                      motorStatus
+                                          ? 'assets/images/fan_on.gif'
+                                          : 'assets/images/fan_off.png',
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : Colors.white,
+                                      colorBlendMode: BlendMode.srcIn,
+                                    ),
+                                ),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "운전 주파수",
+                                      style: TextStyle(
+                                        fontSize: w * 0.028,
+                                        color: motorStatus
+                                            ? AppColor.duGrey
+                                            : AppColor.duGrey,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      "${fanFreq}Hz",
+                                      style: TextStyle(
+                                        fontSize: w * 0.04,
+                                        color: motorStatus
+                                            ? AppColor.duBlack
+                                            : AppColor.duBlack,
+                                        fontWeight: FontWeight.w600
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+
+                        ),
+                        // 펄싱 차압 / 동작 솔밸브
+                        GestureDetector(
+                          onTap: onTogglePulse,
+                          child: RoundContainer(
+                            width: w * 0.35,
+                            height: portrait ? h * 0.08 : h * 0.3,
+                            borderRadius: 10,
+                            color: Color(0xFFFEFEFE),
+                            shadow: AppColor.duGreySha,
+                            child:
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                spacing: w * 0.03,
+                                children: [
+                                  GreenContainer(
+                                    width: w * 0.1,
+                                    height: w * 0.1,
+                                    radius: w * 0.02,
+                                    padding: EdgeInsetsGeometry.all(5),
+                                    child:
+                                      Image.asset(
+                                        motorStatus
+                                            ? 'assets/images/c_filter_off.png'
+                                            : 'assets/images/c_filter_on.gif',
+                                        color: motorStatus
+                                            ? Colors.white
+                                            : Colors.white,
+                                        colorBlendMode: BlendMode.srcIn,
+                                      ),
+                                  ),
+                                  Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      pulseDescription ?
+                                      Text(
+                                        "펄싱 차압",
+                                        style: TextStyle(
+                                          fontSize: w * 0.028,
+                                          color: motorStatus
+                                              ? AppColor.duGrey
+                                              : AppColor.duGrey,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ) :
+                                      Text(
+                                        "동작 솔밸브",
+                                        style: TextStyle(
+                                          fontSize: w * 0.028,
+                                          color: motorStatus
+                                              ? AppColor.duGrey
+                                              : AppColor.duGrey,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      pulseDescription ?
+                                      Text(
+                                        "${pulseDiff}mmAq",
+                                        style: TextStyle(
+                                          fontSize: w * 0.04,
+                                          color: motorStatus
+                                              ? AppColor.duBlack
+                                              : AppColor.duBlack,
+                                          fontWeight: FontWeight.w600
+                                        ),
+                                      ) :
+                                      Text(
+                                        "${solCount}번",
+                                        style: TextStyle(
+                                            fontSize: w * 0.04,
+                                            color: motorStatus
+                                                ? AppColor.duBlack
+                                                : AppColor.duBlack,
+                                            fontWeight: FontWeight.w600
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+
+                          ),
+                        ),
+
+                      ],
+                    ),
+                    SizedBox(),
+                    // 운전 시작 및 부저 정지
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: w * 0.04,
+                      children: [
+                        InkWell(
+                          onTap: onToggleRun,
+                          child: BlueContainer(
+                            width: w * 0.43,
+                            height: portrait ? h * 0.06 : h * 0.2,
+                            radius: 12,
+                            linear: true,
+                            child: Row(
+                              spacing: w * 0.01,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  motorStatus
+                                      ? Icons.stop
+                                      : Icons.play_arrow,
+                                  size: w * 0.04,
+                                  color: motorStatus
+                                      ? Colors.black
+                                      : Colors.white,
+                                ),
+                                SizedBox(),
+                                Text(
+                                  motorStatus ? '운전 정지' : '운전 시작',
+                                  style: TextStyle(
+                                    fontSize: w * 0.04,
+                                    color: motorStatus
+                                        ? Colors.black
+                                        : Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // 부저 정지 버튼
+                        InkWell(
+                          onTap: onToggleBuzzer,
+                          child: RoundContainer(
+                            width: w * 0.3,
+                            height: portrait ? h * 0.06 : h * 0.2,
+                            gradient: AppColor.duGreyGra,
+                            border: Border.all(color: Color(0xFFE5ECF2), width: 0.5),
+                            borderRadius: 12,
+                            child: Row(
+                              spacing: w * 0.01,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.stop_circle_outlined,
+                                  size: w * 0.04,
+                                  color: motorStatus
+                                      ? AppColor.duBlack
+                                      : AppColor.duBlack,
+                                ),
+                                SizedBox(),
+                                Text(
+                                  "부저 정지",
+                                  style: TextStyle(
+                                    fontSize: w * 0.04,
+                                    color: motorStatus
+                                        ? AppColor.duBlack
+                                        : AppColor.duBlack,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // 게이지 그래프 (차압, 전류1, 전류2)
+              BgContainer(
+                width: w * 0.9,
+                height: portrait ? h * 0.18 : h * 0.7,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  spacing: w * 0.08,
+                  children: [
+                    // 차압 그래프
+                    Column(
+                      spacing: portrait ? h * 0.005 : h * 0.02,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GaugeCircleTile(
+                          color: AppColor.duBlue,
+                          size: w * 0.2,
+                          thick: 0.2,
+                          unit: "mmAq",
+                          value: diffPressure.toDouble(),
+                          isBlue: false,
+                          max: 500,
+                        ),
+                        Text("차압", style: TextStyle(color: AppColor.duBlack, fontWeight: FontWeight.w500, fontSize: w * 0.04),),
+                      ],
+                    ),
+                    // 전류(1) 그래프
+                    Column(
+                      spacing: portrait ? h * 0.005 : h * 0.02,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GaugeCircleTile(
+                          color: AppColor.duBlue,
+                          size: w * 0.2,
+                          thick: 0.2,
+                          unit: "A",
+                          value: power1.toDouble(),
+                          max: 600
+                        ),
+                        Text("전류(1)", style: TextStyle(color: AppColor.duBlack, fontWeight: FontWeight.w500, fontSize: w * 0.04),),
+                      ],
+                    ),
+                    // 전류(2) 그래프
+                    Column(
+                      spacing: portrait ? h * 0.005 : h * 0.02,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GaugeCircleTile(
+                          color: AppColor.duBlue,
+                          size: w * 0.2,
+                          thick: 0.2,
+                          unit: "A",
+                          value: power2.toDouble(),
+                          max: 600
+                        ),
+                        Text("전류(2)", style: TextStyle(color: AppColor.duBlack, fontWeight: FontWeight.w500, fontSize: w * 0.04),),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // 필터 정보
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                spacing: w * 0.06,
+                children: [
+                  BgContainer(
+                    width: w * 0.42,
+                    height: portrait ? h * 0.12 : h * 0.5,
+                    child:
+                      Padding(
+                      padding: EdgeInsetsGeometry.only(left: w * 0.06),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "필터 사용 시간",
+                            style: TextStyle(
+                              fontSize: w * 0.04,
+                              fontWeight: FontWeight.w500,
+                              color: AppColor.duBlack,
+                            ),
+                          ),
+                          ShaderMask(
+                            shaderCallback: (bounds) {
+                              return AppColor.duMixGra.createShader(
+                                Rect.fromLTRB(0, 0, bounds.width, bounds.height),
+                              );
+                            },
+                            blendMode: BlendMode.srcIn,
+                            child: Row(
+                              textBaseline: TextBaseline.alphabetic,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              children: [
+                                Text(
+                                  "$filterTime",
+                                  style: TextStyle(
+                                    fontSize: w * 0.08,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  "시간",
+                                  style: TextStyle(
+                                    fontSize: w * 0.05,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  BgContainer(
+                    width: w * 0.42,
+                    height: portrait ? h * 0.12 : h * 0.5,
+                    child:
+                    Padding(
+                      padding: EdgeInsetsGeometry.only(left: w * 0.06),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "필터 교체 횟수",
+                            style: TextStyle(
+                              fontSize: w * 0.04,
+                              fontWeight: FontWeight.w500,
+                              color: AppColor.duBlack,
+                            ),
+                          ),
+                          ShaderMask(
+                            shaderCallback: (bounds) {
+                              return AppColor.duMixGra.createShader(
+                                Rect.fromLTRB(0, 0, bounds.width, bounds.height),
+                              );
+                            },
+                            blendMode: BlendMode.srcIn,
+                            child: Row(
+                              textBaseline: TextBaseline.alphabetic,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              children: [
+                                Text(
+                                  "$filterCount",
+                                  style: TextStyle(
+                                    fontSize: w * 0.08,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  "회",
+                                  style: TextStyle(
+                                    fontSize: w * 0.05,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(),
+
+              // 기존 디자인 UI
+              /*
+              // 기존 메인 정보 컨테이너
               Container(
                 alignment: Alignment.center,
                 margin: EdgeInsets.symmetric(
@@ -859,7 +1560,7 @@ class _HomeTab extends StatelessWidget {
                                     children: [
                                       Row(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.end,
+                                        MainAxisAlignment.end,
                                         children: [
                                           Icon(
                                             Icons.circle,
@@ -883,9 +1584,9 @@ class _HomeTab extends StatelessWidget {
                                       Row(
                                         spacing: 0.001,
                                         mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                        MainAxisAlignment.center,
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.baseline,
+                                        CrossAxisAlignment.baseline,
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
                                           const SizedBox(width: 1),
@@ -947,13 +1648,13 @@ class _HomeTab extends StatelessWidget {
                                   child: Column(
                                     // 전류 표시
                                     mainAxisAlignment:
-                                        MainAxisAlignment.spaceAround,
+                                    MainAxisAlignment.spaceAround,
                                     children: [
                                       Row(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                        MainAxisAlignment.center,
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.end,
+                                        CrossAxisAlignment.end,
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
                                           Text(
@@ -980,9 +1681,9 @@ class _HomeTab extends StatelessWidget {
                                       ),
                                       Row(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                        MainAxisAlignment.center,
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.end,
+                                        CrossAxisAlignment.end,
                                         textBaseline: TextBaseline.alphabetic,
                                         children: [
                                           Text(
@@ -1063,11 +1764,11 @@ class _HomeTab extends StatelessWidget {
                                 width: 68,
                                 color: pulseStatus == "펄스 정지"
                                     ? (motorStatus
-                                          ? Colors.white
-                                          : Colors.black54)
+                                    ? Colors.white
+                                    : Colors.black54)
                                     : (motorStatus
-                                          ? Colors.white
-                                          : AppColor.duBlue),
+                                    ? Colors.white
+                                    : AppColor.duBlue),
                                 colorBlendMode: BlendMode.srcIn,
                               ),
                               SizedBox(width: w * 0.03),
@@ -1206,20 +1907,10 @@ class _HomeTab extends StatelessWidget {
                   ),
                 ),
               ),
-              // 게이지 그래프 (차압, 전류1, 전류2)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.01),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
+              // 기존 게이지 그래프 (차압, 전류1, 전류2)
+              BgContainer(
+                width: w * 0.9,
+                height: h * 0.2,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(0, 25, 0, 0),
                   child: Row(
@@ -1259,8 +1950,7 @@ class _HomeTab extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // 필터 정보 표시
+              // 기존 필터 정보 표시
               Container(
                 margin: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -1352,6 +2042,7 @@ class _HomeTab extends StatelessWidget {
                   ),
                 ),
               ),
+               */
             ],
           ),
         ),

@@ -15,6 +15,7 @@ class RoundContainer extends StatelessWidget {
   final Gradient? gradient;
   final List<BoxShadow>? shadow;
   final EdgeInsetsGeometry? padding;
+  final BoxBorder? border;
 
   const RoundContainer({
     super.key,
@@ -26,6 +27,7 @@ class RoundContainer extends StatelessWidget {
     this.gradient,
     this.shadow,
     this.padding,
+    this.border,
   });
 
   @override
@@ -39,6 +41,7 @@ class RoundContainer extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius ?? 0),
         gradient: gradient,
         boxShadow: shadow,
+        border: border ?? null,
       ),
       child: child,
     );
@@ -51,6 +54,7 @@ class BlueContainer extends StatelessWidget {
   final double? width;
   final double? height;
   final bool? linear;
+  final double? radius;
   final EdgeInsetsGeometry? padding;
 
   const BlueContainer({
@@ -59,6 +63,7 @@ class BlueContainer extends StatelessWidget {
     this.width,
     this.height,
     this.linear,
+    this.radius,
     this.padding,
   });
 
@@ -69,7 +74,7 @@ class BlueContainer extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(radius ?? 20),
         gradient: (linear ?? false) ? AppColor.duBlueGraLine : AppColor.duBlueGra,
         boxShadow: AppColor.duBlueSha,
       ),
@@ -84,6 +89,7 @@ class GreenContainer extends StatelessWidget {
   final double? width;
   final double? height;
   final bool? linear;
+  final double? radius;
   final EdgeInsetsGeometry? padding;
 
   const GreenContainer({
@@ -92,6 +98,7 @@ class GreenContainer extends StatelessWidget {
     this.width,
     this.height,
     this.linear,
+    this.radius,
     this.padding,
   });
 
@@ -102,7 +109,7 @@ class GreenContainer extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(radius ?? 20),
         gradient: (linear ?? false) ? AppColor.duGreenGraLine : AppColor.duGreenGra,
         boxShadow: AppColor.duGreenSha,
       ),
@@ -184,91 +191,196 @@ class BgContainer extends StatelessWidget {
 }
 
 class GaugeTile extends StatelessWidget {
+  final String title, unit;
+  final double max, size, value;
+  final double? thick;
+  final Color? color;
+  final bool isInt;
+
   const GaugeTile({
     super.key,
     required this.title,
-    required this.valueStr,
+    required this.value,
     required this.unit,
     required this.max,
     required this.size,
-    required this.color,
+    required this.isInt,
+    this.thick,
+    this.color,
   });
 
-  final String title, valueStr, unit;
-  final double max, size;
-  final Color color;
+
 
   @override
   Widget build(BuildContext context) {
-    final value = double.tryParse(valueStr) ?? 0;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = size * 0.8;
-        final axis = size * 0.13;
-        final titleFont = size * 0.10;
-        final valueFont = size * 0.10;
-        final unitFont = size * 0.075;
-
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               title,
               style: TextStyle(
-                fontSize: titleFont,
-                fontWeight: FontWeight.w800,
+                fontSize: size * 0.13,
+                fontWeight: FontWeight.w700,
                 color: color,
               ),
             ),
-            SizedBox(
-              height: h,
-              child: SfRadialGauge(
-                axes: <RadialAxis>[
-                  RadialAxis(
-                    startAngle: 180,
-                    endAngle: 0,
-                    minimum: 0,
-                    maximum: max,
-                    showLabels: false,
-                    showTicks: false,
-                    axisLineStyle: AxisLineStyle(thickness: axis),
-                    pointers: <GaugePointer>[
-                      RangePointer(value: value, color: color, width: axis),
-                    ],
-                    annotations: <GaugeAnnotation>[
-                      GaugeAnnotation(
-                        angle: -90,
-                        positionFactor: 0.1,
-                        widget: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              valueStr,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: valueFont,
+            ClipRect(
+              child: Align(
+                alignment: Alignment.topCenter,
+                heightFactor: 0.5,
+                child: Container(
+                  width: size,
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: SfRadialGauge(
+                      axes: <RadialAxis>[
+                        RadialAxis(
+                          startAngle: 180,
+                          endAngle: 0,
+                          minimum: 0,
+                          maximum: max,
+                          showLabels: false,
+                          showTicks: false,
+                          radiusFactor: 1,
+                          axisLineStyle: AxisLineStyle(thickness: thick ?? size * 0.15),
+                          pointers: <GaugePointer>[
+                            RangePointer(
+                                value: value,
                                 color: color,
-                              ),
+                                width: thick ?? size * 0.1,
                             ),
-                            Text(
-                              unit,
-                              style: TextStyle(
-                                fontSize: unitFont,
-                                color: color,
+                          ],
+                          annotations: <GaugeAnnotation>[
+                            GaugeAnnotation(
+                              angle: -90,
+                              positionFactor: size * 0.002,
+                              widget: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    isInt ? "${value.toInt()}" : "${value}",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: size * 0.14,
+                                      height: 0.7,
+                                      color: color,
+                                    ),
+                                  ),
+                                  Text(
+                                    unit,
+                                    style: TextStyle(
+                                      fontSize: size * 0.08,
+                                      color: color,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
-            ),
+            )
           ],
         );
       },
+    );
+  }
+}
+
+class GaugeCircleTile extends StatelessWidget {
+
+  final double? size, thick, value, max;
+  final Color? color;
+  final String? unit;
+  final bool? isBlue;
+
+  const GaugeCircleTile({
+    super.key,
+    required this.size,
+    required this.thick,
+    required this.value,
+    required this.color,
+    required this.unit,
+    required this.max,
+    this.isBlue,
+  });
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      child: AspectRatio(
+        aspectRatio: 1.0,
+        child: SfRadialGauge(
+          axes: <RadialAxis>[
+            RadialAxis(
+              showLabels: false,
+              showTicks: false,
+              startAngle: 270,
+              endAngle: 270,
+              radiusFactor: 1,
+              maximum: max ?? 100,
+              axisLineStyle: AxisLineStyle(
+                thicknessUnit: GaugeSizeUnit.factor,
+                thickness: thick ?? 0.2,
+              ),
+              annotations: <GaugeAnnotation>[
+                GaugeAnnotation(
+                  angle: 180,
+                  widget: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "${value?.toInt()}",
+                            style: TextStyle(
+                              fontSize: size != null ? size! * 0.2 : 100,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            "$unit",
+                            style: TextStyle(
+                              fontSize: size != null ? size! * 0.11 : 100,
+                              fontWeight: FontWeight.w300,
+                              color: AppColor.duGrey,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                    ],
+                  ),
+                ),
+              ],
+              pointers: <GaugePointer>[
+                RangePointer(
+                  value: value ?? 0,
+                  cornerStyle: CornerStyle.bothFlat,
+                  enableAnimation: true,
+                  animationDuration: 1200,
+                  sizeUnit: GaugeSizeUnit.factor,
+                  gradient: SweepGradient(
+                    colors: (isBlue ?? true) ? <Color>[Color(0xFF0387D1), Color(0xFF0169B7)] : <Color>[Color(0xFF00BA77), Color(0xFF16AB5A)],
+                    stops: <double>[0.25, 0.75],
+                  ),
+                  color: Color(0xFF00A8B5),
+                  width: thick ?? 0.2,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

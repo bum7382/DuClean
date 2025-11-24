@@ -1,4 +1,5 @@
 import 'package:duclean/pages/Main.dart';
+import 'package:duclean/res/customWidget.dart';
 import 'package:duclean/services/routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:duclean/providers/selected_device.dart';
 import 'package:duclean/providers/dp_history.dart';
 import 'package:duclean/providers/power_history.dart';
+import 'package:duclean/common/context_extensions.dart';
 import 'dart:math';
 
 
@@ -71,13 +73,12 @@ class IntroPage extends StatelessWidget {
   Widget build(BuildContext context) {
 
     // 화면 크기
-    Size screenSize = MediaQuery.of(context).size;
-    var screenWidth = screenSize.width;
-    var screenHeight = screenSize.height;
+    final w = context.screenWidth;
+    final h = context.screenHeight;
 
-    // 버튼 크기
-    final double buttonWidth = screenWidth * 0.6;
-    final double buttonHeight = screenHeight * 0.07;
+    // 세로 모드 여부
+    final portrait = context.isPortrait;
+
 
     return Scaffold(
         backgroundColor: AppColor.bg,
@@ -99,40 +100,33 @@ class IntroPage extends StatelessWidget {
         // 몸체
         body: Align(
           alignment: Alignment.topCenter,
-          child: Center(
-            child: Column(
-              spacing: 100,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                SizedBox(height: 100,),
-                Text("Your Standard,\nDUCLEAN",style:
-                TextStyle(fontSize: 30, fontWeight: FontWeight.w700,color: AppColor.duBlue),
-                  textAlign: TextAlign.center,),
-                // 연결 목록 버튼
-                SizedBox(
-                  width: buttonWidth,
-                  height: buttonHeight,
-                  child: ElevatedButton(
-                    onPressed: () {
+          child: SingleChildScrollView(
+            child: Center(
+              child: Column(
+                spacing: 100,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  SizedBox(height: 100,),
+                  Text("Your Standard,\nDUCLEAN",style:
+                  TextStyle(fontSize: w * 0.08, fontWeight: FontWeight.w700,color: AppColor.duBlue),
+                    textAlign: TextAlign.center,),
+                  // 연결 목록 버튼
+                  InkWell(
+                    onTap: () {
                       Navigator.of(context).pushNamed(Routes.connectListPage);
-
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColor.duBlue,
-                      foregroundColor: Colors.white,
-                      textStyle: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
+                    child: BlueContainer(
+                      width: w * 0.6,
+                      height: portrait ? h * 0.07 : h * 0.2,
+                      radius: 100,
+                      child: Center(
+                        child: Text('연결 목록', style: TextStyle(color: Colors.white, fontSize: w * 0.05, fontWeight: FontWeight.w600),)
                       ),
                     ),
-                    child: Text('연결 목록'),
                   ),
-                ),
 
-              ],
+                ],
+              ),
             ),
           ),
         ),

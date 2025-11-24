@@ -60,7 +60,7 @@ class _DpDetailPageState extends State<DpDetailPage> {
       _dpHighAlarmDelay = dHAlarmD;
       _dpLowLimit       = dLLimit;
       _dpLowAlarmDelay  = dLAlarmD;
-      _loading          = false;
+      _loading          = true;
     });
   }
 
@@ -82,6 +82,9 @@ class _DpDetailPageState extends State<DpDetailPage> {
     // 화면 크기
     final w = context.screenWidth;
     final h = context.screenHeight;
+
+    // 세로 모드 여부
+    final portrait = context.isPortrait;
 
     if (_loading) {
       return Scaffold(
@@ -139,63 +142,56 @@ class _DpDetailPageState extends State<DpDetailPage> {
                     children: [
                       // 현재 차압 표시 카드
                       Container(
+                        width: w * 0.9,
+                        height: portrait ? h * 0.13 : h * 2,
                         margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.01),
-                              blurRadius: 24,
-                              offset: const Offset(0, 8),
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 4),
                             ),
                           ],
+
                         ),
                         child: Row(
                           spacing: w * 0.07,
                           mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(0, 25, 0, 0),
-                              child: SizedBox(
-                                width: w * 0.3,
-                                child: GaugeTile(
-                                  title: '차압',
-                                  valueStr: dpHistory
-                                      .latestDpFor(host, unitId)
-                                      .toInt()
-                                      .toString(),
-                                  unit: 'mmAq',
-                                  max: 500,
-                                  size: w * 0.3,
-                                  color: AppColor.duBlue,
-                                ),
-                              ),
+                            GaugeTile(
+                              title: '차압',
+                              value: dpHistory.latestDpFor(host, unitId).toDouble(),
+                              isInt: true,
+                              unit: 'mmAq',
+                              max: 500,
+                              size: w * 0.3,
+                              color: AppColor.duBlue,
                             ),
-                            Padding(
-                              padding: EdgeInsets.fromLTRB(0, h * 0.04, 0, 0),
-                              child: Column(
-                                spacing: 4,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "현재 차압: ",
-                                    style: TextStyle(
-                                      fontSize: w * 0.04,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                            Column(
+                              spacing: 4,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  "현재 차압: ",
+                                  style: TextStyle(
+                                    fontSize: w * 0.04,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  Text(
-                                    "${dpHistory.latestDpFor(host, unitId).toInt()}mmAq",
-                                    style: TextStyle(
-                                      fontSize: w * 0.06,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColor.duBlue,
-                                    ),
+                                ),
+                                Text(
+                                  "${dpHistory.latestDpFor(host, unitId).toInt()}mmAq",
+                                  style: TextStyle(
+                                    fontSize: w * 0.06,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColor.duBlue,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

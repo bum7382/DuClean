@@ -8,6 +8,7 @@ class AppColor {
   static const duRed = Color(0xFFCF001F);
   static const duGreen = Color(0xFF16AB5A);
   static const duGrey = Color(0xFF6B7B95);
+  static const duLightGrey = Color(0xFF889BB4);
   static const duBlack = Color(0xFF3A4A62);
 
   // 그라디언트 색
@@ -24,7 +25,7 @@ class AppColor {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [
-      Color(0xFF0169B7),
+      Color(0xFF157BC4),
       Color(0xFF0387D1),
     ],
   );
@@ -33,7 +34,7 @@ class AppColor {
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
     colors: [
-      Color(0xFF0169B7),
+      Color(0xFF157BC4),
       Color(0xFF0387D1),
     ],
   );
@@ -60,7 +61,7 @@ class AppColor {
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
     colors: [
-      Color(0xFF177AC2),
+      Color(0xFF157BC4),
       Color(0xFF00BA77),
     ],
   );

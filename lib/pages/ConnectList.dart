@@ -250,6 +250,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColor.bg,
       appBar: AppBar(
         centerTitle: false,
         title: const Text(
@@ -372,19 +373,19 @@ class _DeviceTile extends StatelessWidget {
         children: [
           IconButton(
             tooltip: '수정',
-            icon: const Icon(Icons.edit, color: Colors.grey),
+            icon: const Icon(Icons.edit, color: AppColor.duGrey),
             onPressed: onEdit,
             visualDensity: const VisualDensity(horizontal: -3.5),
           ),
           IconButton(
             tooltip: '설정',
-            icon: const Icon(Icons.settings, color: Colors.grey),
+            icon: const Icon(Icons.settings, color: AppColor.duGrey),
             onPressed: onSetting,
             //visualDensity: VisualDensity.compact,
               visualDensity: const VisualDensity(horizontal: -3.5)
           ),
           PopupMenuButton<String>(
-            iconColor: Colors.grey,
+            iconColor: AppColor.duGrey,
             onSelected: (v) async {
               if (v == 'disconnect') {
                 await ModbusManager.instance.disconnect(context, host: d.host, unitId: d.unitId);
