@@ -159,6 +159,7 @@ class BgContainer extends StatelessWidget {
   final double? height;
   final Color? color;
   final EdgeInsetsGeometry? padding;
+  final double? radius;
 
   const BgContainer({
     super.key,
@@ -167,6 +168,7 @@ class BgContainer extends StatelessWidget {
     this.height,
     this.color,
     this.padding,
+    this.radius,
   });
 
   @override
@@ -177,7 +179,7 @@ class BgContainer extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: color ?? Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(radius ?? 30),
         boxShadow: AppColor.duGreySha,
         border: Border.all(
           color: Color(0x80E0E2E6),
@@ -196,6 +198,7 @@ class GaugeTile extends StatelessWidget {
   final double? thick;
   final Color? color;
   final bool isInt;
+  final bool? portrait;
 
   const GaugeTile({
     super.key,
@@ -207,9 +210,8 @@ class GaugeTile extends StatelessWidget {
     required this.isInt,
     this.thick,
     this.color,
+    this.portrait,
   });
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -249,13 +251,13 @@ class GaugeTile extends StatelessWidget {
                             RangePointer(
                                 value: value,
                                 color: color,
-                                width: thick ?? size * 0.1,
+                                width: thick ?? size * 0.15,
                             ),
                           ],
                           annotations: <GaugeAnnotation>[
                             GaugeAnnotation(
                               angle: -90,
-                              positionFactor: size * 0.002,
+                              positionFactor: (portrait ?? true) ? size * 0.002 : size * 0.001,
                               widget: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [

@@ -60,7 +60,7 @@ class _DpDetailPageState extends State<DpDetailPage> {
       _dpHighAlarmDelay = dHAlarmD;
       _dpLowLimit       = dLLimit;
       _dpLowAlarmDelay  = dLAlarmD;
-      _loading          = true;
+      _loading          = false;
     });
   }
 
@@ -561,7 +561,7 @@ class _DpHistoryChartState extends State<_DpHistoryChart> {
                         dashArray: const [6, 4],
                         label: HorizontalLineLabel(
                           show: true,
-                          alignment: Alignment.topRight,
+                          alignment: Alignment.bottomRight,
                           labelResolver: (_) =>
                           '과차압 ${widget.dpHighLimit} mmAq',
                           style: const TextStyle(

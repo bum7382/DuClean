@@ -98,7 +98,7 @@ class AppColor {
 }
 
 class AppConst {
-  static const version = 'V 1.0.8';
+  static const version = 'V 1.0.9';
 }
 
 /// 기기 식별용 간단 모델 (ConnectList에서 사용)
@@ -128,4 +128,50 @@ class DeviceKey {
     'unitId': unitId,
     'name': name,
   };
+}
+
+/// 단일 일정 모델
+class MotorScheduleEntry {
+  final String id;          // 간단히 랜덤 문자열
+  bool enabled;             // on/off 스위치
+  bool isOn;                // true=켬, false=끔
+  TimeOfDay time;           // 실행 시간
+  Set<int> weekdays;        // 1(월) ~ 7(일)
+
+  MotorScheduleEntry({
+    required this.id,
+    required this.enabled,
+    required this.isOn,
+    required this.time,
+    required this.weekdays,
+  });
+
+  String get timeLabel {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  String get actionLabel => isOn ? '켬' : '끔';
+
+  String get repeatLabel {
+    if (weekdays.length == 7) return '매일';
+    if (weekdays.isEmpty) return '반복 없음';
+    final names = ['월', '화', '수', '목', '금', '토', '일'];
+
+    return (weekdays.toList()..sort())
+        .map((d) => names[d - 1])
+        .join(', ');
+  }
+
+
+  MotorScheduleEntry copy() {
+    return MotorScheduleEntry(
+      id: id,
+      enabled: enabled,
+      isOn: isOn,
+      time: time,
+      weekdays: {...weekdays},
+    );
+  }
 }

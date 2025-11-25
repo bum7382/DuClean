@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:duclean/pages/schedule/Schedule.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modbus_client/modbus_client.dart';
@@ -112,7 +113,7 @@ class _MainPageState extends State<MainPage> {
   var powerDiff = 0; // 전류 편차
 
   bool pulseDescription = false;  // 펄싱 차압 <-> 솔 밸브
-  bool _loading = false;
+  bool _loading = true;
   int _pollFailCount = 0;
   static const int _failToShowLoading = 2;
 
@@ -523,7 +524,6 @@ class _MainPageState extends State<MainPage> {
           Padding(
             padding: const EdgeInsets.only(right: 7),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
                   onPressed: () {
@@ -591,13 +591,32 @@ class _MainPageState extends State<MainPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
                 IconButton(
-                  onPressed: () {},
-                  icon: const Icon(Icons.menu, color: Colors.white, size: 30),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      PageRouteBuilder(
+                        transitionDuration: const Duration(milliseconds: 300),
+                        reverseTransitionDuration: const Duration(milliseconds: 300),
+                        pageBuilder: (context, animation, secondaryAnimation) {
+                          return SchedulePage(
+                            readRegister: (addr) => readRegister(addr),
+                            writeRegister: (addr, val) => writeRegister(addr, val),
+                          );
+                        },
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        },
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.calendar_month, color: Colors.white, size: 30),
                 ),
-                const SizedBox(width: 4),
+
               ],
+
             ),
           ),
         ],
@@ -762,6 +781,8 @@ class _HomeTab extends StatelessWidget {
             spacing: portrait ? h * 0.03 : h * 0.06,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // 리디자인
+              /*
               SizedBox(),
               // 메인 정보 컨테이너
               BgContainer(
@@ -1445,9 +1466,9 @@ class _HomeTab extends StatelessWidget {
                 ],
               ),
               SizedBox(),
+               */
 
               // 기존 디자인 UI
-              /*
               // 기존 메인 정보 컨테이너
               Container(
                 alignment: Alignment.center,
@@ -1910,139 +1931,127 @@ class _HomeTab extends StatelessWidget {
               // 기존 게이지 그래프 (차압, 전류1, 전류2)
               BgContainer(
                 width: w * 0.9,
-                height: h * 0.2,
+                height: portrait ? h * 0.15 : h * 0.5,
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(0, 25, 0, 0),
+                  padding: EdgeInsetsGeometry.only(bottom: h * 0.02),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    spacing: w * 0.03,
                     children: [
-                      Expanded(
-                        child: GaugeTile(
-                          title: '차압',
-                          valueStr: diffPressure.toString(),
-                          unit: 'mmAq',
-                          max: 500,
-                          size: w * 0.3,
-                          color: AppColor.duBlue,
-                        ),
+                      GaugeTile(
+                        title: '차압',
+                        value: diffPressure.toDouble(),
+                        isInt: true,
+                        unit: 'mmAq',
+                        max: 500,
+                        size: w * 0.25,
+                        color: AppColor.duBlue,
+                        portrait: portrait,
                       ),
-                      Expanded(
-                        child: GaugeTile(
-                          title: '전류1',
-                          valueStr: power1.toString(),
-                          unit: 'A',
-                          max: 60,
-                          size: w * 0.3,
-                          color: AppColor.duBlue,
-                        ),
+                      GaugeTile(
+                        title: '전류1',
+                        value: power1,
+                        isInt: false,
+                        unit: 'A',
+                        max: 60,
+                        size: w * 0.25,
+                        color: AppColor.duBlue,
+                        portrait: portrait,
                       ),
-                      Expanded(
-                        child: GaugeTile(
-                          title: '전류2',
-                          valueStr: power2.toString(),
-                          unit: 'A',
-                          max: 60,
-                          size: w * 0.3,
-                          color: AppColor.duBlue,
-                        ),
+                      GaugeTile(
+                        title: '전류2',
+                        value: power2,
+                        isInt: false,
+                        unit: 'A',
+                        max: 60,
+                        size: w * 0.25,
+                        color: AppColor.duBlue,
+                        portrait: portrait,
                       ),
                     ],
                   ),
                 ),
               ),
               // 기존 필터 정보 표시
-              Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.01),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
+              BgContainer(
+                width: w * 0.9,
+                height: portrait ? h * 0.07 : h * 0.15,
+                radius: w * 0.05,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center, //가로 균형 배치
+                  children: [
+                    //SizedBox(width: w * 0.1,),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          "필터 사용 시간",
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w300,
+                          ),
+                        ),
+                        Row(
+                          textBaseline: TextBaseline.alphabetic,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          children: [
+                            Text(
+                              "$filterTime",
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                            Text(
+                              " 시간",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    SizedBox(width: w * 0.2),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          "필터 교체 횟수",
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w300,
+                          ),
+                        ),
+                        Row(
+                          textBaseline: TextBaseline.alphabetic,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          children: [
+                            Text(
+                              "$filterCount",
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                            Text(
+                              " 회",
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(0, 10, 0, 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center, //가로 균형 배치
-                    children: [
-                      //SizedBox(width: w * 0.1,),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            "필터 사용 시간",
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                          Row(
-                            textBaseline: TextBaseline.alphabetic,
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            children: [
-                              Text(
-                                "$filterTime",
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w300,
-                                ),
-                              ),
-                              Text(
-                                " 시간",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w300,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      SizedBox(width: w * 0.2),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Text(
-                            "필터 교체 횟수",
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                          Row(
-                            textBaseline: TextBaseline.alphabetic,
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            children: [
-                              Text(
-                                "$filterCount",
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w300,
-                                ),
-                              ),
-                              Text(
-                                " 회",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w300,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
               ),
-               */
             ],
           ),
         ),

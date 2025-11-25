@@ -5,10 +5,11 @@ import 'package:provider/provider.dart';
 
 import 'package:duclean/services/modbus_manager.dart';
 import 'package:duclean/services/routes.dart';
-import 'package:duclean/res/Constants.dart';            // AppColor, DeviceKey 등
+import 'package:duclean/res/Constants.dart';
 import 'package:duclean/providers/selected_device.dart';
 import 'package:duclean/models/device_info.dart';
-import 'package:duclean/common/context_extensions.dart'; // screenWidth/Height 확장
+import 'package:duclean/common/context_extensions.dart';
+import 'package:duclean/services/motor_schedule_service.dart';
 
 const String _kDevicesStoreKey = 'modbus_devices_v1';
 
@@ -104,42 +105,61 @@ class _ConnectListPageState extends State<ConnectListPage> {
   // 설정: 선택 저장 → 설정 페이지로 이동
 
   void _openSetting(DeviceKey d) {
-    context.read<SelectedDevice>().select(
-      DeviceInfo(
-        name: d.name,
-        address: d.host,
-        unitId: d.unitId,
-        number: d.number,
-      ),
+    // 1) 선택 기기 설정
+    final dev = DeviceInfo(
+      name: d.name,
+      address: d.host,
+      unitId: d.unitId,
+      number: d.number,
     );
+    context.read<SelectedDevice>().select(dev);
+
+    // 2) 스케줄 대상 기기 설정
+    MotorScheduleService().setSchedule(
+      host: dev.address,
+      unitId: dev.unitId,
+      address: 0,
+    );
+
+    // 3) 설정 화면으로 이동
     Navigator.of(context).pushNamed(Routes.connectSettingPage);
   }
 
+
 // 메인: 선택 → 연결 여부 확인(Registry 기준) → 이동
   void _openMain(DeviceKey d) {
-    context.read<SelectedDevice>().select(
-      DeviceInfo(
-        name: d.name,
-        address: d.host,
-        unitId: d.unitId,
-        number: d.number,
-      ),
+    // 1) 선택 기기 설정
+    final dev = DeviceInfo(
+      name: d.name,
+      address: d.host,
+      unitId: d.unitId,
+      number: d.number,
+    );
+    context.read<SelectedDevice>().select(dev);
+
+    // 2) 스케줄 대상 기기 설정
+    MotorScheduleService().setSchedule(
+      host: dev.address,
+      unitId: dev.unitId,
+      address: 0,
     );
 
-    final isConnected = context.read<ConnectionRegistry>()
-        .stateOf(d.host, d.unitId).connected;
+    // 3) 연결 여부 확인
+    final isConnected = context
+        .read<ConnectionRegistry>()
+        .stateOf(d.host, d.unitId)
+        .connected;
 
     if (!isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('기기에 연결되어 있지 않습니다. 설정에서 연결 후 접속하세요.')),
       );
-      //Navigator.of(context).pushNamed(Routes.connectSettingPage);
-      Navigator.of(context).pushNamed(Routes.mainPage);
-    }
-    else {
+      Navigator.of(context).pushNamed(Routes.connectSettingPage);
+    } else {
       Navigator.of(context).pushNamed(Routes.mainPage);
     }
   }
+
 
 
   Future<void> _addDevice() async {

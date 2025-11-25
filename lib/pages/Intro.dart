@@ -10,11 +10,16 @@ import 'package:duclean/providers/selected_device.dart';
 import 'package:duclean/providers/dp_history.dart';
 import 'package:duclean/providers/power_history.dart';
 import 'package:duclean/common/context_extensions.dart';
+import 'package:duclean/services/motor_schedule_service.dart';
 import 'dart:math';
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
 
-void main() {
+  // 모터 스케줄 서비스 초기화 (저장된 스케줄 복구 + 타이머 재설정)
+  MotorScheduleService().init(appNavigatorKey);
   runApp(
     MultiProvider(
       providers: [
@@ -36,6 +41,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // 기본 설정, 테마, 메인화면
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'DuClean',
       theme: ThemeData(
@@ -46,14 +52,20 @@ class MyApp extends StatelessWidget {
         switchTheme: SwitchThemeData(
           trackColor: WidgetStateProperty.resolveWith((states) {
             if (!states.contains(WidgetState.selected)) {
-              return Colors.grey.shade300;
+              return Colors.white10;
             }
             return null;
           }),
 
           thumbColor: WidgetStateProperty.resolveWith((states) {
             if (!states.contains(WidgetState.selected)) {
-              return Colors.grey.shade500;
+              return AppColor.duLightGrey;
+            }
+            return null;
+          }),
+          trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+            if (!states.contains(WidgetState.selected)) {
+              return AppColor.duLightGrey;
             }
             return null;
           }),

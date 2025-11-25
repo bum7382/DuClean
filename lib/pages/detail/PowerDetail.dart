@@ -559,7 +559,7 @@ class _PowerHistoryChartState extends State<_PowerHistoryChart> {
                       dashArray: const [6, 4],
                       label: HorizontalLineLabel(
                         show: true,
-                        alignment: Alignment.topRight,
+                        alignment: Alignment.bottomRight,
                         labelResolver: (_) =>
                         '과전류 ${limitA.toStringAsFixed(1)}A',
                         style: const TextStyle(
