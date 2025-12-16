@@ -39,6 +39,13 @@ dependencies:
   animations: ^2.0.11
   syncfusion_flutter_gauges: ^31.1.21
   shared_preferences: ^2.5.3
+  mqtt_client: ^10.11.1
+  provider: ^6.1.5+1
+  material_symbols_icons: ^4.2874.0
+  settings_ui: ^2.0.2
+  fl_chart: ^1.1.1
+  wifi_scan: ^0.4.1+2
+  permission_handler: ^11.3.0
 
 dev_dependencies:
   flutter_test:
