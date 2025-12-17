@@ -1,11 +1,16 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http; // [추가] 패키지 import
 import 'package:duclean/res/Constants.dart';
 import 'package:duclean/services/alarm_store.dart';
 import 'package:duclean/common/context_extensions.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 const String _defaultDeviceName = 'AP-500';
+
+// 백엔드 설정
+String _backendBaseUrl = dotenv.env['API_URL'] ?? 'http://default-url.com';
 
 String _alarmMessage(int code) {
   switch (code) {
@@ -41,6 +46,7 @@ class _AlarmPageState extends State<AlarmPage> {
   // 필터링을 위한 변수
   String? _targetHost;
   String? _targetName;
+  String? _targetMac;
   bool _isInit = false;
 
   @override
@@ -51,6 +57,10 @@ class _AlarmPageState extends State<AlarmPage> {
     if (!_isInit) {
       _extractArguments();
       _stream = _alarmStream(); // 인자 확인 후 스트림 생성
+
+      // [추가] 화면 진입 시 백엔드 동기화 실행
+      _syncWithServer();
+
       _isInit = true;
     }
   }
@@ -58,21 +68,74 @@ class _AlarmPageState extends State<AlarmPage> {
   /// 네비게이션 인자(Arguments) 추출
   void _extractArguments() {
     final args = ModalRoute.of(context)?.settings.arguments;
-
-    // 1. Map 형태로 넘어온 경우
+    debugPrint(args.toString());
     if (args is Map<String, dynamic>) {
-      _targetHost = args['host']; // 예: '192.168.0.10'
-      _targetName = args['name']; // 예: 'AP-500'
-    }
-    // 2. DeviceKey 객체(혹은 dynamic)로 넘어온 경우
-    else if (args != null) {
       try {
-        final dynamic d = args;
-        _targetHost = d.host;
-        _targetName = d.name;
+        _targetHost = args['host']; // 예: '192.168.0.10'
+        _targetName = args['name']; // 예: 'AP-500'
+        _targetMac = args['mac'];
       } catch (_) {
         // 구조가 다르면 무시 (전체 알람 표시)
       }
+    }
+  }
+
+  // [추가] 백엔드 데이터 가져오기 및 로컬 저장
+  Future<void> _syncWithServer() async {
+    // 호스트나 맥 주소가 없으면 불필요한 호출 방지 (필요 시 주석 해제하여 전체 호출 가능)
+    if (_targetHost == null && _targetMac == null) return;
+
+    try {
+      final Map<String, String> queryParams = {};
+      if (_targetHost != null) queryParams['ip'] = _targetHost!;
+      if (_targetMac != null) queryParams['mac'] = _targetMac!;
+
+      // 쿼리 파라미터가 비어있으면 active=true를 넣어 400 에러 방지
+      if (queryParams.isEmpty) queryParams['active'] = 'true';
+
+      final uri = Uri.parse('$_backendBaseUrl/api/logs/filter')
+          .replace(queryParameters: queryParams);
+
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final List<dynamic> logs = json['data'];
+
+        for (var log in logs) {
+          final String ip = log['ip_address'] ?? '';
+          final int code = (log['code'] != null) ? int.parse(log['code'].toString()) : 0;
+          final bool isActive = log['active'] == true || log['active'].toString() == 'true';
+
+          final DateTime dt = DateTime.parse(log['timestamp']);
+          final int tsMs = dt.millisecondsSinceEpoch;
+
+          // 표시 이름 설정
+          final String displayName = _targetName ?? log['mac_address'] ?? 'Unknown';
+
+          if (isActive) {
+            // 발생 내역 저장 (중복 체크는 AlarmStore 내부에서 처리)
+            await AlarmStore.appendOccurrence(
+              host: ip,
+              unitId: 1, // 기본값
+              name: displayName,
+              code: code,
+              tsMs: tsMs,
+            );
+          } else {
+            // 해제 내역 처리 (기존 알람 업데이트)
+            await AlarmStore.appendClear(
+              host: ip,
+              unitId: 1, // 기본값
+              code: code,
+              clearedAtMs: tsMs,
+            );
+          }
+        }
+        debugPrint('백엔드 동기화 완료: ${logs.length}건');
+      }
+    } catch (e) {
+      debugPrint('서버 동기화 실패: $e');
     }
   }
 
@@ -175,22 +238,32 @@ class _AlarmPageState extends State<AlarmPage> {
             return const Center(child: CircularProgressIndicator());
           }
           final entries = snap.data!;
-          if (entries.isEmpty) {
-            return const Center(
-              child: Text('알람 내역이 없습니다.', style: TextStyle(color: Colors.grey)),
-            );
-          }
+          // if (entries.isEmpty) {
+          //   // 빈 화면이라도 당겨서 새로고침 할 수 있게 아래로 이동
+          // }
 
           return RefreshIndicator(
             onRefresh: () async {
-              setState(() { _stream = _alarmStream(); });
-              await Future.delayed(const Duration(milliseconds: 300));
+              // [수정] 당겨서 새로고침 시 서버 동기화 수행
+              await _syncWithServer();
+
+              // Stream은 자동으로 돌고 있지만 즉각 반영을 위해 setState
+              if(mounted) {
+                setState(() { _stream = _alarmStream(); });
+              }
             },
             edgeOffset: 10,
             displacement: 10,
             color: Colors.white,
             backgroundColor: AppColor.duBlue,
-            child: ListView.separated(
+            child: entries.isEmpty
+                ? Stack(
+              children: [
+                ListView(), // ScrollView가 있어야 RefreshIndicator 동작함
+                const Center(child: Text('알람 내역이 없습니다.', style: TextStyle(color: Colors.grey))),
+              ],
+            )
+                : ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               itemCount: entries.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),

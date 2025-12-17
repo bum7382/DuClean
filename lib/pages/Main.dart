@@ -39,6 +39,7 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   // 통신 설정
   String _host = "";
+  String _mac = "";
   int _unitId = 0;
   String _deviceName = "";
   bool _bootStrapped = false;
@@ -147,6 +148,7 @@ class _MainPageState extends State<MainPage> {
     }
 
     _host = sel.address;
+    _mac = sel.macAddress;
     _unitId = sel.unitId;
     _deviceName = sel.name;
     _bootStrapped = true;
@@ -534,8 +536,9 @@ class _MainPageState extends State<MainPage> {
                       Routes.alarmPage,
                       arguments: <String, dynamic>{
                         'host': _host,
+                        'mac': _mac,
                         'name': _deviceName,
-                        'date': alarmAt,     // (필요하다면 유지)
+                        'date': alarmAt,
                       },
                     );
                   },

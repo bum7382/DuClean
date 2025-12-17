@@ -12,14 +12,16 @@ import 'package:duclean/providers/power_history.dart';
 import 'package:duclean/common/context_extensions.dart';
 import 'package:duclean/services/motor_schedule_service.dart';
 import 'dart:math';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
-void main() async{
+Future<void> main() async{
   WidgetsFlutterBinding.ensureInitialized();
 
   // 모터 스케줄 서비스 초기화 (저장된 스케줄 복구 + 타이머 재설정)
   MotorScheduleService().init(appNavigatorKey);
+  await dotenv.load(fileName: ".env");
   runApp(
     MultiProvider(
       providers: [
