@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http; // [추가] 패키지 import
+import 'package:http/http.dart' as http;
 import 'package:duclean/res/Constants.dart';
 import 'package:duclean/services/alarm_store.dart';
 import 'package:duclean/common/context_extensions.dart';
@@ -26,7 +26,7 @@ String _alarmMessage(int code) {
 }
 
 String _formatKTime(DateTime ts) {
-  final d = ts.toLocal();
+  final d = ts;
   final am = d.hour < 12 ? '오전' : '오후';
   final h12 = (d.hour % 12 == 0) ? 12 : (d.hour % 12);
   final mm = d.minute.toString().padLeft(2, '0');
@@ -40,6 +40,7 @@ class AlarmPage extends StatefulWidget {
   State<AlarmPage> createState() => _AlarmPageState();
 }
 
+
 class _AlarmPageState extends State<AlarmPage> {
   late Stream<List<AlarmRecord>> _stream;
 
@@ -48,6 +49,8 @@ class _AlarmPageState extends State<AlarmPage> {
   String? _targetName;
   String? _targetMac;
   bool _isInit = false;
+
+  bool _isSyncing = false;
 
   @override
   void didChangeDependencies() {
@@ -81,76 +84,72 @@ class _AlarmPageState extends State<AlarmPage> {
   }
 
   // [추가] 백엔드 데이터 가져오기 및 로컬 저장
-  Future<void> _syncWithServer() async {
-    // 호스트나 맥 주소가 없으면 불필요한 호출 방지 (필요 시 주석 해제하여 전체 호출 가능)
-    if (_targetHost == null && _targetMac == null) return;
+  // AlarmPage.dart 내의 수정된 부분
 
+// 동기화 중복 실행 방지를 위한 플래그
+
+
+// 1. 서버 동기화 함수 개선 (성공 여부 반환)
+  Future<bool> _syncWithServer() async {
+    if (_targetHost == null && _targetMac == null) return false;
+    if (_isSyncing) return false; // 이미 동기화 중이면 중복 실행 방지
+
+    _isSyncing = true;
     try {
       final Map<String, String> queryParams = {};
       if (_targetHost != null) queryParams['ip'] = _targetHost!;
       if (_targetMac != null) queryParams['mac'] = _targetMac!;
 
-      // 쿼리 파라미터가 비어있으면 active=true를 넣어 400 에러 방지
-      if (queryParams.isEmpty) queryParams['active'] = 'true';
+      // [중요] 과거 내역(연결 끊겼을 때 발생한 것)을 가져오려면
+      // active=true 조건을 빼거나 서버가 전체를 주도록 해야 합니다.
+      // queryParams['active'] = 'true'; // 이 줄을 주석 처리하거나 제거하세요.
 
-      final uri = Uri.parse('$_backendBaseUrl/api/logs/filter')
-          .replace(queryParameters: queryParams);
-
-      final response = await http.get(uri);
+      final uri = Uri.parse('$_backendBaseUrl/api/logs/filter').replace(queryParameters: queryParams);
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final List<dynamic> logs = json['data'];
 
-        for (var log in logs) {
-          final String ip = log['ip_address'] ?? '';
-          final int code = (log['code'] != null) ? int.parse(log['code'].toString()) : 0;
-          final bool isActive = log['active'] == true || log['active'].toString() == 'true';
-
-          final DateTime dt = DateTime.parse(log['timestamp']);
-          final int tsMs = dt.millisecondsSinceEpoch;
-
-          // 표시 이름 설정
-          final String displayName = _targetName ?? log['mac_address'] ?? 'Unknown';
-
-          if (isActive) {
-            // 발생 내역 저장 (중복 체크는 AlarmStore 내부에서 처리)
-            await AlarmStore.appendOccurrence(
-              host: ip,
-              unitId: 1, // 기본값
-              name: displayName,
-              code: code,
-              tsMs: tsMs,
-            );
-          } else {
-            // 해제 내역 처리 (기존 알람 업데이트)
-            await AlarmStore.appendClear(
-              host: ip,
-              unitId: 1, // 기본값
-              code: code,
-              clearedAtMs: tsMs,
-            );
-          }
+        // 이전에 만든 배치 동기화 메서드 호출
+        await AlarmStore.syncWithServer(logs.cast<Map<String, dynamic>>(), defaultName: _targetName);
+        if (mounted) {
+          setState(() {
+            // 이 호출이 StreamBuilder를 다시 작동하게 트리거합니다.
+            _stream = _alarmStream();
+          });
         }
-        debugPrint('백엔드 동기화 완료: ${logs.length}건');
+        return true;
       }
+      return false;
     } catch (e) {
-      debugPrint('서버 동기화 실패: $e');
+      debugPrint('네트워크 연결 대기 중... ($e)');
+      return false;
+    } finally {
+      _isSyncing = false;
     }
   }
 
+// 2. 스트림 루프에서 주기적으로 동기화 호출
   Stream<List<AlarmRecord>> _alarmStream() async* {
+    int syncCounter = 0;
+
     while (mounted) {
-      // 1. 전체 데이터 로드
+      // 매 루프(1초)마다 로컬 DB를 읽어 화면에 즉시 반영
       List<AlarmRecord> allRecords = await AlarmStore.loadAllSortedDesc();
 
-      // 2. 선택된 기기가 있다면 필터링 (Host IP 기준)
       if (_targetHost != null && _targetHost!.isNotEmpty) {
-        final filtered = allRecords.where((e) => e.host == _targetHost).toList();
-        yield filtered;
+        yield allRecords.where((e) => e.host == _targetHost).toList();
       } else {
-        // 선택된 기기가 없으면 전체 표시
         yield allRecords;
+      }
+
+      // [자동 재시도] 10초마다 한 번씩 서버 동기화 시도
+      // (네트워크가 끊겨있어도 10초마다 자동으로 재시도하게 됨)
+      syncCounter++;
+      if (syncCounter >= 10) {
+        _syncWithServer();
+        syncCounter = 0;
       }
 
       await Future.delayed(const Duration(seconds: 1));
@@ -167,6 +166,7 @@ class _AlarmPageState extends State<AlarmPage> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
+          backgroundColor: AppColor.bg,
           title: const Text('알람 내역 삭제'),
           content: Text(contentMsg),
           actions: [
@@ -188,7 +188,6 @@ class _AlarmPageState extends State<AlarmPage> {
     // [수정됨] 기기 선택 여부에 따라 삭제 로직 분기
     if (_targetHost != null && _targetHost!.isNotEmpty) {
       // 1. 특정 기기 알람만 삭제
-      // 주의: AlarmStore에 deleteByHost 메서드가 없으면 에러가 납니다. (하단 참고)
       await AlarmStore.deleteByHost(_targetHost!);
     } else {
       // 2. 전체 삭제 (기존 로직)
@@ -238,13 +237,10 @@ class _AlarmPageState extends State<AlarmPage> {
             return const Center(child: CircularProgressIndicator());
           }
           final entries = snap.data!;
-          // if (entries.isEmpty) {
-          //   // 빈 화면이라도 당겨서 새로고침 할 수 있게 아래로 이동
-          // }
 
           return RefreshIndicator(
             onRefresh: () async {
-              // [수정] 당겨서 새로고침 시 서버 동기화 수행
+              // 당겨서 새로고침 시 서버 동기화 수행
               await _syncWithServer();
 
               // Stream은 자동으로 돌고 있지만 즉각 반영을 위해 setState
@@ -270,11 +266,11 @@ class _AlarmPageState extends State<AlarmPage> {
               itemBuilder: (context, i) {
                 final e = entries[i];
 
-                final occurredAt  = DateTime.fromMillisecondsSinceEpoch(e.tsMs).toLocal();
+                final occurredAt  = DateTime.fromMillisecondsSinceEpoch(e.tsMs, isUtc: true).toLocal();
                 final occurredTxt = _formatKTime(occurredAt);
 
                 final clearedAt   = (e.clearedTsMs != null)
-                    ? DateTime.fromMillisecondsSinceEpoch(e.clearedTsMs!).toLocal()
+                    ? DateTime.fromMillisecondsSinceEpoch(e.clearedTsMs!, isUtc: true).toLocal()
                     : null;
                 final clearedTxt  = (clearedAt != null) ? _formatKTime(clearedAt) : null;
 

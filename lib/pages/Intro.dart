@@ -13,6 +13,7 @@ import 'package:duclean/common/context_extensions.dart';
 import 'package:duclean/services/motor_schedule_service.dart';
 import 'dart:math';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:duclean/services/auth_service.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -25,6 +26,7 @@ Future<void> main() async{
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => SelectedDevice()),
         ChangeNotifierProvider(create: (_) => ConnectionRegistry()),
         ChangeNotifierProvider(create: (_) => DpHistory()),

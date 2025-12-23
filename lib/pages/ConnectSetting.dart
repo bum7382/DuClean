@@ -1,3 +1,4 @@
+import 'package:duclean/res/customWidget.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:duclean/providers/selected_device.dart';
@@ -5,6 +6,7 @@ import 'package:duclean/services/routes.dart';
 import 'package:duclean/res/Constants.dart';
 import 'package:duclean/common/context_extensions.dart';
 import 'package:duclean/services/modbus_manager.dart';
+import 'package:duclean/services/auth_service.dart';
 
 class ConnectSettingPage extends StatelessWidget {
   const ConnectSettingPage({super.key});
@@ -15,6 +17,8 @@ class ConnectSettingPage extends StatelessWidget {
 
     final w = context.screenWidth;
     final h = context.screenHeight;
+
+    final auth = context.watch<AuthService>();
 
     if (dev == null) {
       return Scaffold(
@@ -37,11 +41,11 @@ class ConnectSettingPage extends StatelessWidget {
           (r) => r.stateOf(dev.address, dev.unitId).connected,
     );
 
-    // [핵심 조건] MAC 주소가 비어있지 않은지 확인
     final hasMacAddress = dev.macAddress.isNotEmpty;
 
     return Scaffold(
       backgroundColor: AppColor.bg,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         centerTitle: false,
         title: const Text('연결 설정',
@@ -117,7 +121,7 @@ class ConnectSettingPage extends StatelessWidget {
                   const SizedBox(height: 8),
                   // [추가] MAC 주소 표시
                   _infoRow(
-                    '기기 와이파이',
+                    'SSID',
                     hasMacAddress ? 'DUCLEAN_${dev.macAddress}' : '정보 없음',
                     hasMacAddress ? Colors.black : Colors.redAccent,
                     15,
@@ -127,6 +131,8 @@ class ConnectSettingPage extends StatelessWidget {
               ),
             ),
           ),
+          // 권한 설정 섹션 추가
+          _buildPermissionSection(context, auth, dev),
 
           // 연결 버튼
           ElevatedButton(
@@ -196,7 +202,7 @@ class ConnectSettingPage extends StatelessWidget {
                 padding: const EdgeInsetsDirectional.symmetric(horizontal: 30, vertical: 10),
               ),
               onPressed: () {
-                Navigator.of(context).pushNamed(Routes.mainPage);
+                Navigator.of(context).pushReplacementNamed(Routes.mainPage);
               },
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -247,4 +253,127 @@ class ConnectSettingPage extends StatelessWidget {
       ],
     );
   }
+}
+
+// --- 권한 설정 위젯 빌더 ---
+Widget _buildPermissionSection(BuildContext context, AuthService auth, dynamic dev) {
+  final isUser = auth.isUserMode(dev.address, dev.unitId);
+  final isAdmin = auth.isAdminMode(dev.address, dev.unitId);
+
+  return BgContainer(
+    width: MediaQuery.of(context).size.width * 0.9,
+    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+    child: Column(
+      children: [
+        // 사용자 권한 토글
+        SwitchListTile(
+          title: const Text("사용자 권한", style: TextStyle(fontWeight: FontWeight.bold)),
+          value: isUser,
+          activeThumbColor: AppColor.duBlue,
+          onChanged: (val) => _handlePermissionToggle(context, "사용자", val, "1111", dev.address, dev.unitId),
+        ),
+        // 관리자 권한 토글
+        if (isUser) ...[
+          const Divider(),
+          SwitchListTile(
+            title: Text("관리자 권한", style: TextStyle(fontWeight: FontWeight.bold)),
+            value: isAdmin,
+            activeThumbColor: AppColor.duBlue,
+            onChanged: (val) => _handlePermissionToggle(context, "관리자", val, "1661", dev.address, dev.unitId),
+          ),
+        ]
+      ],
+    ),
+  );
+}
+
+// --- 비밀번호 확인 및 토글 로직 ---
+void _handlePermissionToggle(BuildContext context, String type, bool value, String correctPw, String host, int unitId) {
+  final auth = context.read<AuthService>();
+
+  if (!value) {
+    if (type == "사용자") auth.setUserMode(host, unitId, false);
+    if (type == "관리자") auth.setAdminMode(host, unitId, false);
+    return;
+  }
+
+  showDialog(
+    context: context,
+    builder: (ctx) {
+      String input = "";
+      String? errorText; // 에러 메시지 상태 관리 변수
+
+      return StatefulBuilder( // 다이얼로그 내부 상태 변경을 위해 필요
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: AppColor.bg,
+            title: Text("$type 권한 인증"),
+            content: TextField(
+              autofocus: true,
+              obscureText: true,
+              cursorColor: AppColor.duBlue,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: AppColor.duBlue),
+              decoration: InputDecoration(
+                hintText: "비밀번호 4자리를 입력하세요",
+                hintStyle: const TextStyle(color: Colors.grey),
+
+                // --- 에러 처리 핵심 부분 ---
+                errorText: errorText,
+                errorStyle: const TextStyle(color: Colors.red),
+
+                focusedBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColor.duBlue, width: 2),
+                ),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppColor.duBlue, width: 1),
+                ),
+                errorBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.red, width: 1),
+                ),
+                focusedErrorBorder: const UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.red, width: 2),
+                ),
+                // --------------------------
+              ),
+              onChanged: (v) {
+                input = v;
+                // 다시 입력하기 시작하면 에러 메시지 삭제
+                if (errorText != null) {
+                  setState(() => errorText = null);
+                }
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("취소", style: TextStyle(color: AppColor.duRed)),
+              ),
+              TextButton(
+                onPressed: () {
+                  if (input == correctPw) {
+                    if (type == "사용자") auth.setUserMode(host, unitId, true);
+                    if (type == "관리자") auth.setAdminMode(host, unitId, true);
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("인증 성공"),
+                        backgroundColor: AppColor.duBlue,
+                      ),
+                    );
+                  } else {
+                    // 에러 상태 업데이트 (TextField 하단에 메시지 노출)
+                    setState(() {
+                      errorText = "비밀번호가 틀렸습니다";
+                    });
+                  }
+                },
+                child: const Text("확인", style: TextStyle(color: AppColor.duBlue)),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }

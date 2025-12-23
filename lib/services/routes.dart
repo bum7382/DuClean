@@ -1,4 +1,5 @@
 import 'package:duclean/pages/Alarm.dart';
+import 'package:duclean/pages/Intro.dart';
 import 'package:duclean/pages/Main.dart';
 import 'package:duclean/pages/ConnectList.dart';
 import 'package:duclean/pages/ConnectSetting.dart';
@@ -31,6 +32,7 @@ Route<T> buildFadeThroughRoute<T>({
 class Routes {
   Routes._();
 
+  static const String introPage = '/introPage';
   static const String mainPage = '/mainPage';
   static const String alarmPage = '/alarmPage';
   static const String connectListPage = '/connectListPage';
@@ -53,6 +55,11 @@ class Routes {
       case mainPage:
         return buildFadeThroughRoute(
           page: const MainPage(),
+          settings: settings,
+        );
+      case introPage:
+        return buildFadeThroughRoute(
+          page: const IntroPage(),
           settings: settings,
         );
       case alarmPage:

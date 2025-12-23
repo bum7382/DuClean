@@ -54,6 +54,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
 
   Future<void> _loadDevices() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
     final raw = prefs.getStringList(_kDevicesStoreKey);
 
     if (raw == null || raw.isEmpty) {
@@ -172,7 +173,10 @@ class _ConnectListPageState extends State<ConnectListPage> {
         ));
       });
       await _saveDevices();
+      await _loadDevices();
     }
+
+
   }
 
   // 기기 수정
@@ -250,7 +254,12 @@ class _ConnectListPageState extends State<ConnectListPage> {
         title: const Text('기기 목록', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+            Routes.introPage, // 인트로 경로
+              (route) => false, // 기존의 모든 스택 제거
+            );
+          }
         ),
         backgroundColor: AppColor.duBlue,
       ),
@@ -587,6 +596,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                 focusedBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: AppColor.duBlue, width: 2.0),
                 ),
+                labelStyle: TextStyle(color: AppColor.duBlack),
               ),
             ),
             const SizedBox(height: 12),
@@ -599,6 +609,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                 focusedBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: AppColor.duBlue, width: 2.0),
                 ),
+                labelStyle: TextStyle(color: AppColor.duBlack),
               ),
               keyboardType: TextInputType.url,
             ),
@@ -611,6 +622,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                 focusedBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: AppColor.duBlue, width: 2.0),
                 ),
+                labelStyle: TextStyle(color: AppColor.duBlack),
               ),
               keyboardType: TextInputType.number,
             ),
@@ -618,7 +630,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
             // MAC 주소 표시 (읽기 전용)
             TextField(
               controller: _mac,
-              readOnly: true,
+              readOnly: isAndroid && _isScanning,
               decoration: InputDecoration(
                 focusedBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: AppColor.duBlue, width: 2.0),
@@ -628,6 +640,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                 hintText: isAndroid ? null : '예: DUCLEAN_AABBCC',
                 filled: true,
                 fillColor: Colors.transparent,
+                labelStyle: TextStyle(color: AppColor.duBlack),
               ),
             ),
             const SizedBox(height: 14),

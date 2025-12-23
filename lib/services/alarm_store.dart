@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // import 'package:duclean/res/Constants.dart'; // 필요 시 사용
 // import 'package:material_symbols_icons/symbols.dart'; // 필요 시 사용
@@ -126,12 +127,67 @@ class AlarmStore {
         return;
       }
     }
-    // 해당 발생을 못 찾으면 새 레코드로 남기지 않음(무해)
   }
 
   static Future<List<AlarmRecord>> loadAllSortedDesc() async {
     final all = await _loadRaw();
     all.sort((a, b) => b.tsMs.compareTo(a.tsMs));
     return all;
+  }
+
+  // services/alarm_store.dart 내 syncWithServer 메서드 수정
+
+  static Future<void> syncWithServer(List<Map<String, dynamic>> serverLogs, {String? defaultName}) async {
+    final List<AlarmRecord> all = await _loadRaw();
+    bool isChanged = false;
+
+    for (var log in serverLogs) {
+      final rawCode = log['status'] ?? log['code'];
+      if (rawCode == null || rawCode.toString() == '0') continue;
+
+      final int code = int.parse(rawCode.toString());
+      final String host = (log['ip_address'] ?? '').toString().trim();
+      final bool isActiveServer = log['active'] == true || log['active'].toString() == 'true';
+      final int tsMs = DateTime.parse(log['timestamp']).millisecondsSinceEpoch;
+      final int? stopTsMs = log['stop_timestamp'] != null
+          ? DateTime.parse(log['stop_timestamp']).millisecondsSinceEpoch
+          : null;
+
+      // [중복 체크 강화] 동일 호스트 + 동일 코드 + 시간 차이가 2초(2000ms) 이내인 데이터 찾기
+      int idx = all.indexWhere((e) =>
+      e.host == host &&
+          e.code == code &&
+          (e.tsMs - tsMs).abs() < 2000 // 2초 이내 오차는 같은 알람으로 간주
+      );
+
+      if (idx != -1) {
+        // 1. 이미 존재한다면 서버 데이터 기준으로 상태만 업데이트 (무결성 보장)
+        final local = all[idx];
+        if (isActiveServer != (local.clearedTsMs == null)) {
+          all[idx] = AlarmRecord(
+            host: local.host,
+            unitId: local.unitId,
+            name: defaultName ?? local.name,
+            code: local.code,
+            tsMs: local.tsMs, // 로컬 시간 유지 (중복 생성 방지)
+            clearedTsMs: isActiveServer ? null : (stopTsMs ?? tsMs),
+          );
+          isChanged = true;
+        }
+      } else {
+        // 2. 아예 새로운 데이터라면 추가
+        all.add(AlarmRecord(
+          host: host,
+          unitId: 1,
+          name: defaultName ?? 'Unknown',
+          code: code,
+          tsMs: tsMs,
+          clearedTsMs: isActiveServer ? null : (stopTsMs ?? tsMs),
+        ));
+        isChanged = true;
+      }
+    }
+
+    if (isChanged) await _saveAll(all);
   }
 }
