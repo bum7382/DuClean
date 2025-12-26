@@ -98,7 +98,7 @@ class AppColor {
 }
 
 class AppConst {
-  static const version = 'V 1.1.1';
+  static const version = 'V 1.1.2';
 }
 
 /// 기기 식별용 간단 모델 (ConnectList에서 사용)
@@ -108,13 +108,15 @@ class DeviceKey {
   final String name;       // 표시 이름
   final int number;        // 정렬 순서 (저장 필요)
   final String macAddress; // [추가] 고유 식별자 (DB 조회용)
+  final String serial;
 
   const DeviceKey({
     required this.host,
     required this.unitId,
     required this.name,
     this.number = 0,
-    this.macAddress = '', // 기존 데이터 호환성을 위해 기본값 빈 문자열
+    this.macAddress = '',
+    required this.serial,
   });
 
   String get id => '$host#$unitId';
@@ -125,6 +127,7 @@ class DeviceKey {
     name: (m['name'] as String?) ?? 'Device',
     number: (m['number'] as num?)?.toInt() ?? 0, // [수정] 순서 저장 복구
     macAddress: (m['macAddress'] as String?) ?? '', // [추가] MAC 주소 로드
+    serial: m['serial'] ?? '',
   );
 
   Map<String, dynamic> toJson() => {
@@ -133,6 +136,7 @@ class DeviceKey {
     'name': name,
     'number': number,       // [수정] 순서 저장
     'macAddress': macAddress, // [추가] MAC 주소 저장
+    'serial': serial,
   };
 }
 

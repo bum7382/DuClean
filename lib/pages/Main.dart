@@ -504,24 +504,28 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
       AuthGuard(
+        isTab: true,
         child: FrequencySettingPage(
           readRegister: (addr) => readRegister(addr),
           writeRegister: (addr, val) => writeRegister(addr, val),
         ),
       ),
       AuthGuard(
+        isTab: true,
         child: PulseSettingPage(
           readRegister: (addr) => readRegister(addr),
           writeRegister: (addr, val) => writeRegister(addr, val),
         ),
       ),
       AuthGuard(
+        isTab: true,
         child: AlarmSettingPage(
           readRegister: (addr) => readRegister(addr),
           writeRegister: (addr, val) => writeRegister(addr, val),
         ),
       ),
       AuthGuard(
+        isTab: true,
         child: OptionSettingPage(
           readRegister: (addr) => readRegister(addr),
           writeRegister: (addr, val) => writeRegister(addr, val),
@@ -940,13 +944,21 @@ class _HomeTab extends StatelessWidget {
                               GestureDetector(
                                 onTap: () {
                                   Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => DpDetailPage(
-                                        readRegister: (addr) =>
-                                            readRegister(addr),
-                                        writeRegister: (addr, val) =>
-                                            writeRegister(addr, val),
-                                      ),
+                                    PageRouteBuilder(
+                                      transitionDuration: const Duration(milliseconds: 300),
+                                      reverseTransitionDuration: const Duration(milliseconds: 300),
+                                      pageBuilder: (context, animation, secondaryAnimation) {
+                                        return DpDetailPage(
+                                          readRegister: (addr) => readRegister(addr),
+                                          writeRegister: (addr, val) => writeRegister(addr, val),
+                                        );
+                                      },
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        );
+                                      },
                                     ),
                                   );
                                 },
@@ -1031,13 +1043,21 @@ class _HomeTab extends StatelessWidget {
                               GestureDetector(
                                 onTap: () {
                                   Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => PowerDetailPage(
-                                        readRegister: (addr) =>
-                                            readRegister(addr),
-                                        writeRegister: (addr, val) =>
-                                            writeRegister(addr, val),
-                                      ),
+                                    PageRouteBuilder(
+                                      transitionDuration: const Duration(milliseconds: 300),
+                                      reverseTransitionDuration: const Duration(milliseconds: 300),
+                                      pageBuilder: (context, animation, secondaryAnimation) {
+                                        return PowerDetailPage(
+                                          readRegister: (addr) => readRegister(addr),
+                                          writeRegister: (addr, val) => writeRegister(addr, val),
+                                        );
+                                      },
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: child,
+                                        );
+                                      },
                                     ),
                                   );
                                 },

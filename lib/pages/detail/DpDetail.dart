@@ -11,6 +11,8 @@ import 'package:duclean/providers/selected_device.dart';
 import 'package:duclean/res/customWidget.dart';
 import 'package:duclean/res/settingWidget.dart';
 import 'package:settings_ui/settings_ui.dart';
+import 'package:duclean/services/auth_service.dart';
+import 'package:duclean/services/routes.dart';
 
 class DpDetailPage extends StatefulWidget {
   const DpDetailPage({
@@ -41,7 +43,6 @@ class _DpDetailPageState extends State<DpDetailPage> {
   }
 
   Future<void> _loadDpSettings() async {
-    // 네가 준 번지수 기준
     // 29 : 과차압 설정
     // 65 : 과차압 알람지연
     // 67 : 저차압 설정
@@ -76,6 +77,19 @@ class _DpDetailPageState extends State<DpDetailPage> {
 
     final dpHistory = context.watch<DpHistory>();
     final history = dpHistory.pointsFor(host, unitId);
+
+    // 권한 설정
+    // 1. 현재 선택된 기기 정보 가져오기
+    final selected = context.watch<SelectedDevice>().current;
+
+    // 2. AuthService 가져오기
+    final auth = context.watch<AuthService>();
+
+    // 3. 현재 기기가 있고, 그 기기에 사용자 권한이 부여되었는지 확인
+    bool hasAdminAccess = false;
+    if (selected != null) {
+      hasAdminAccess = auth.isAdminMode(selected.address, selected.unitId);
+    }
 
     // 화면 크기
     final w = context.screenWidth;
@@ -227,7 +241,8 @@ class _DpDetailPageState extends State<DpDetailPage> {
             ),
 
             // ───────── 하단: 과차압 / 저차압 설정 섹션 ─────────
-            SettingsSection(
+            if(hasAdminAccess) ...[
+              SettingsSection(
               //margin: const EdgeInsetsDirectional.only(top: 1, bottom: 0),
               //title: const Text("과차압"),
               tiles: [
@@ -283,7 +298,7 @@ class _DpDetailPageState extends State<DpDetailPage> {
                 ),
               ],
             ),
-            SettingsSection(
+              SettingsSection(
               //margin: const EdgeInsetsDirectional.only(top: 0, bottom: 0),
               //title: const Text("저차압"),
               tiles: [
@@ -339,9 +354,52 @@ class _DpDetailPageState extends State<DpDetailPage> {
                 ),
               ],
             ),
+            ] else ...[
+              SettingsSection(
+                tiles: [
+                  CustomSettingsTile(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.lock_person_outlined, size: 50, color: AppColor.duLightGrey),
+                          const SizedBox(height: 16),
+                          const Text(
+                            "관리자 전용 메뉴",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColor.duBlack),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            "이 메뉴를 사용하려면\n '연결 설정'에서 관리자 인증이 필요합니다.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 12, color: AppColor.duGrey, height: 1.5),
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: w * 0.5,
+                            child: FilledButton(
+                              onPressed: () {
+                                Navigator.of(context).pushNamed(Routes.connectSettingPage);
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColor.duBlue,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text("인증하러 가기", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
-      ),
+      )
     );
 
   }

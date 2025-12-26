@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:duclean/services/modbus_manager.dart';
 import 'package:duclean/services/routes.dart';
@@ -58,7 +60,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
     final raw = prefs.getStringList(_kDevicesStoreKey);
 
     if (raw == null || raw.isEmpty) {
-      _items = [];
+      _items =  [];
     } else {
       final list = <DeviceKey>[];
       for (final s in raw) {
@@ -81,6 +83,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
             name: d.name,
             number: e.key + 1,
             macAddress: d.macAddress,
+            serial: d.serial,
           );
         }).toList();
       }
@@ -102,6 +105,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
       unitId: d.unitId,
       number: d.number,
       macAddress: d.macAddress, // MAC 주소 전달
+      serial: d.serial,
     );
 
     context.read<SelectedDevice>().select(dev);
@@ -166,6 +170,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
           name: result.name,
           number: maxNo + 1,
           macAddress: result.macAddress,
+          serial: result.serial
         ));
       });
       await _saveDevices();
@@ -201,6 +206,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
           name: result.name,
           number: old.number,
           macAddress: result.macAddress,
+          serial: result.serial
         );
       });
       await _saveDevices();
@@ -235,6 +241,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
           name: e.value.name,
           number: e.key + 1,
           macAddress: e.value.macAddress,
+          serial: e.value.serial
         );
       }).toList();
     });
@@ -378,6 +385,7 @@ class _DeviceTile extends StatelessWidget {
           ),
           PopupMenuButton<String>(
             iconColor: AppColor.duGrey,
+            color: AppColor.bg,
             onSelected: (v) async {
               if (v == 'disconnect') {
                 await ModbusManager.instance.disconnect(context, host: d.host, unitId: d.unitId);
@@ -416,6 +424,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
   late final TextEditingController _host;
   late final TextEditingController _unit;
   late final TextEditingController _mac;
+  late final TextEditingController _serial;
 
   bool _isScanning = false;
 
@@ -426,6 +435,57 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
     _host = TextEditingController(text: widget.initial?.host ?? '');
     _unit = TextEditingController(text: widget.initial?.unitId.toString() ?? '1');
     _mac = TextEditingController(text: widget.initial?.macAddress ?? '');
+    _serial = TextEditingController(text: widget.initial?.serial ?? '');
+  }
+
+  // 서버로 시리얼 매칭 정보를 보내는 함수
+  Future<void> _syncSerialWithBackend(String mac, String serial) async {
+    final String apiUrl = dotenv.env['API_URL'] ?? ""; // .env의 API_URL
+
+    try {
+      final response = await http.post(
+        Uri.parse('$apiUrl/api/serial'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'mac': mac,
+          'serial': serial,
+        }),
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ 서버 매칭 성공');
+      } else {
+        debugPrint('❌ 서버 에러: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('❌ 통신 실패: $e');
+    }
+  }
+
+  // 서버에서 해당 MAC의 시리얼 번호를 가져와서 입력창에 채우는 함수
+  Future<void> _fetchAndApplySerial(String mac) async {
+    final String apiUrl = dotenv.env['API_URL'] ?? "";
+    if (apiUrl.isEmpty) return;
+
+    try {
+      final response = await http.get(
+        Uri.parse('$apiUrl/api/serial/$mac'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 3));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final String foundSerial = data['serial'];
+          setState(() {
+            _serial.text = foundSerial; // 시리얼 번호 자동 입력
+          });
+          debugPrint('✅ DB에서 시리얼 조회 성공: $foundSerial');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ 시리얼 조회 에러: $e');
+    }
   }
 
   @override
@@ -434,6 +494,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
     _host.dispose();
     _unit.dispose();
     _mac.dispose();
+    _serial.dispose();
     super.dispose();
   }
 
@@ -453,13 +514,14 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
     if (foundList.isEmpty) {
       // Case A: 없음
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('주변에 DUCLEAN 기기가 없습니다.')),
+        const SnackBar(content: Text('DUCLEAN의 IoT 기기를 찾을 수 없습니다.')),
       );
     }
     else if (foundList.length == 1) {
       // Case B: 딱 1개 발견 -> 자동 입력
       final mac = foundList.first;
       _mac.text = 'DUCLEAN_$mac';
+      _fetchAndApplySerial(mac);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('기기 발견! ($mac)')),
       );
@@ -470,12 +532,14 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
     }
   }
 
+
+
   void _showSelectionDialog(List<String> macList) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('기기의 와이파이를 선택해주세요.', style: TextStyle(fontSize: 20),),
+          title: Text('IoT 기기를 선택해주세요.', style: TextStyle(fontSize: 20),),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -490,7 +554,9 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                     // 선택 시 텍스트 채우고 닫기
                     setState(() {
                       _mac.text = 'DUCLEAN_$mac';
+                      //_mac.text = '$mac';
                     });
+                    _fetchAndApplySerial(mac);
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('선택 완료: $mac')),
@@ -511,10 +577,29 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
     );
   }
 
-  void _submit() {
+  // 경고창
+  void _showWarning(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('입력 확인'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인', style: TextStyle(color: AppColor.duBlue),),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _submit() async {
     final name = _name.text.trim().isEmpty ? 'Device' : _name.text.trim();
     final host = _host.text.trim();
-    final unit = int.tryParse(_unit.text.trim()) ?? 1;
+    final unit = int.tryParse(_unit.text.trim()) ?? -1;
+    final serial = _serial.text.trim();
+    String errorMessage = '';
     String rawMacInput = _mac.text.trim();
     String mac = rawMacInput;
 
@@ -523,26 +608,36 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
     }
 
     if (host.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IP 주소는 필수입니다.')));
-      return;
+      errorMessage += 'IP 주소를 입력해 주세요. ';
     }
 
     if (unit < 0 || unit > 247) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('UnitID는 0~247 범위여야 합니다.')));
-      return;
+      errorMessage += 'UnitID는 0~247 범위여야 합니다. ';
     }
 
     if (mac.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('기기 와이파이 정보가 없습니다. 스캔 버튼을 눌러보세요.')));
-      // 필수라면 여기서 return;
+      errorMessage += 'IoT 기기 정보가 없습니다. 스캔 버튼을 눌러주세요. ';
     }
 
+    if (serial.isEmpty) {
+      errorMessage += '시리얼 번호를 입력해주세요.';
+    }
+
+    if(errorMessage != '') {
+      _showWarning(errorMessage);
+      return;
+    }
+
+    // 서버에 매칭 정보 전송
+    await _syncSerialWithBackend(mac, serial);
+
     Navigator.pop(context, DeviceKey(
-        host: host,
-        unitId: unit,
-        name: name,
-        number: 0,
-        macAddress: mac
+      host: host,
+      unitId: unit,
+      name: name,
+      number: 0,
+      macAddress: mac,
+      serial: serial
     ));
   }
 
@@ -573,7 +668,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                     icon: _isScanning
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.wifi_find, color: AppColor.duBlue),
-                    label: Text(_isScanning ? '스캔 중...' : '기기 와이파이 스캔', style: const TextStyle(color: AppColor.duBlue)),
+                    label: Text(_isScanning ? '스캔 중...' : 'IoT 기기 스캔', style: const TextStyle(color: AppColor.duBlue)),
                   )
                 else
                 // iOS일 때 보여줄 문구
@@ -584,14 +679,19 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
               ],
             ),
             const SizedBox(height: 12),
+            // MAC 주소 표시 (읽기 전용)
             TextField(
-              controller: _name,
-              decoration: const InputDecoration(
-                labelText: '이름',
-                border: OutlineInputBorder(),
+              controller: _mac,
+              readOnly: isAndroid && _isScanning,
+              decoration: InputDecoration(
                 focusedBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: AppColor.duBlue, width: 2.0),
                 ),
+                labelText: isAndroid ? 'IoT 기기 정보 [MAC]' : '기기 정보 (직접 입력)',
+                border: OutlineInputBorder(),
+                hintText: isAndroid ? null : '예: DUCLEAN_AABBCC',
+                filled: true,
+                fillColor: Colors.transparent,
                 labelStyle: TextStyle(color: AppColor.duBlack),
               ),
             ),
@@ -623,19 +723,27 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 12),
-            // MAC 주소 표시 (읽기 전용)
             TextField(
-              controller: _mac,
-              readOnly: isAndroid && _isScanning,
-              decoration: InputDecoration(
+              controller: _name,
+              decoration: const InputDecoration(
+                labelText: '이름',
+                border: OutlineInputBorder(),
                 focusedBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: AppColor.duBlue, width: 2.0),
                 ),
-                labelText: isAndroid ? '기기 와이파이 정보 (스캔)' : '기기 와이파이 이름 (직접 입력)',
+                labelStyle: TextStyle(color: AppColor.duBlack),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _serial,
+              decoration: const InputDecoration(
+                labelText: '기기 시리얼 번호',
+                hintText: '기기에 부착된 시리얼 번호 입력',
                 border: OutlineInputBorder(),
-                hintText: isAndroid ? null : '예: DUCLEAN_AABBCC',
-                filled: true,
-                fillColor: Colors.transparent,
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColor.duBlue, width: 2.0),
+                ),
                 labelStyle: TextStyle(color: AppColor.duBlack),
               ),
             ),

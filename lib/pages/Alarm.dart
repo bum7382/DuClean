@@ -219,6 +219,7 @@ class _AlarmPageState extends State<AlarmPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        /*
         actions: [
           Padding(
               padding: EdgeInsetsGeometry.only(right: w * 0.04),
@@ -228,6 +229,7 @@ class _AlarmPageState extends State<AlarmPage> {
               )
           )
         ],
+         */
         backgroundColor: AppColor.duBlue,
       ),
       body: StreamBuilder<List<AlarmRecord>>(

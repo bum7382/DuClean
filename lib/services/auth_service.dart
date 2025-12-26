@@ -11,7 +11,7 @@ class AuthService extends ChangeNotifier {
   // 1. 장비 암호 인증 상태 (기존 유지)
   final Map<String, bool> _authorizedDevices = {};
 
-  // 2. ⭐ 기기별 사용자/관리자 권한 상태 (Key: "host:unitId")
+  // 2. 기기별 사용자/관리자 권한 상태 (Key: "host:unitId")
   final Map<String, DevicePermissions> _permissionsMap = {};
 
   /// 기기 고유 키 생성 헬퍼
@@ -22,8 +22,6 @@ class AuthService extends ChangeNotifier {
     final key = _makeKey(host, unitId);
     return _permissionsMap.putIfAbsent(key, () => DevicePermissions());
   }
-
-  // --- [외부 참조용 Getter 함수들] ---
 
   /// 특정 기기의 사용자 권한 여부 확인
   bool isUserMode(String? host, int? unitId) {

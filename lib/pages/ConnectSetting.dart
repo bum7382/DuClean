@@ -25,11 +25,11 @@ class ConnectSettingPage extends StatelessWidget {
         backgroundColor: AppColor.bg,
         appBar: AppBar(
           centerTitle: false,
-          title: const Text('연결 설정',
+          title: const Text('기기 연결/권한 설정',
               style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(context).popUntil((route) => route.settings.name == Routes.connectListPage),
           ),
           backgroundColor: AppColor.duBlue,
         ),
@@ -48,7 +48,7 @@ class ConnectSettingPage extends StatelessWidget {
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         centerTitle: false,
-        title: const Text('연결 설정',
+        title: const Text('기기 연결/권한 설정',
             style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -120,18 +120,37 @@ class ConnectSettingPage extends StatelessWidget {
                   _infoRow('Unit ID', '${dev.unitId}', Colors.black),
                   const SizedBox(height: 8),
                   // [추가] MAC 주소 표시
+                  /*
                   _infoRow(
-                    'SSID',
-                    hasMacAddress ? 'DUCLEAN_${dev.macAddress}' : '정보 없음',
+                    'IoT기기[MAC]',
+                    hasMacAddress ? '${dev.macAddress}' : '정보 없음',
                     hasMacAddress ? Colors.black : Colors.redAccent,
                     15,
                     14
                   ),
+                  */
                 ],
               ),
             ),
           ),
           // 권한 설정 섹션 추가
+          // 아이콘 + title 25.12.24
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: 10,
+            children: [
+              const Icon(Icons.lock_person, size: 35.0, color: Colors.red),
+              Text(
+                '집진기 조작 권한 설정',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: w * 0.05,
+                  color: AppColor.duBlack,
+                ),
+              ),
+            ],
+          ),
+
           _buildPermissionSection(context, auth, dev),
 
           // 연결 버튼
@@ -214,7 +233,7 @@ class ConnectSettingPage extends StatelessWidget {
               ),
             )
           else if (isConnected && !hasMacAddress)
-          // 연결은 됐는데 MAC이 없어서 못 넘어가는 경우 안내
+          // [추가] 연결은 됐는데 MAC이 없어서 못 넘어가는 경우 안내
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
               child: Text(
@@ -267,7 +286,7 @@ Widget _buildPermissionSection(BuildContext context, AuthService auth, dynamic d
       children: [
         // 사용자 권한 토글
         SwitchListTile(
-          title: const Text("사용자 권한", style: TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text("사용자", style: TextStyle(fontWeight: FontWeight.bold)),
           value: isUser,
           activeThumbColor: AppColor.duBlue,
           onChanged: (val) => _handlePermissionToggle(context, "사용자", val, "1111", dev.address, dev.unitId),
@@ -276,7 +295,7 @@ Widget _buildPermissionSection(BuildContext context, AuthService auth, dynamic d
         if (isUser) ...[
           const Divider(),
           SwitchListTile(
-            title: Text("관리자 권한", style: TextStyle(fontWeight: FontWeight.bold)),
+            title: Text("관리자", style: TextStyle(fontWeight: FontWeight.bold)),
             value: isAdmin,
             activeThumbColor: AppColor.duBlue,
             onChanged: (val) => _handlePermissionToggle(context, "관리자", val, "1661", dev.address, dev.unitId),

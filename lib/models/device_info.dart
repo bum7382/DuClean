@@ -4,6 +4,7 @@ class DeviceInfo {
   final int unitId;       // Modbus Unit ID
   final int number;
   final String macAddress;
+  final String serial;
 
   const DeviceInfo({
     required this.name,
@@ -11,5 +12,6 @@ class DeviceInfo {
     required this.unitId,
     required this.number,
     required this.macAddress,
+    required this.serial,
   });
 }
