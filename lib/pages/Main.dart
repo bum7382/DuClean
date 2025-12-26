@@ -1,36 +1,38 @@
+// dart 기본 라이브러리
 import 'dart:async';
-import 'package:duclean/pages/schedule/Schedule.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:modbus_client/modbus_client.dart';
-import 'package:modbus_client_tcp/modbus_client_tcp.dart';
-import 'package:provider/provider.dart';
-import 'package:duclean/services/routes.dart';
 
-import 'package:duclean/res/Constants.dart';
-import 'package:duclean/common/context_extensions.dart';
-import 'package:duclean/services/modbus_manager.dart';
-import 'package:duclean/providers/selected_device.dart';
-import 'package:duclean/providers/dp_history.dart';
-import 'package:duclean/providers/power_history.dart';
-
+// 페이지
+import 'package:duclean/pages/schedule/Schedule.dart';
 import 'package:duclean/pages/setting/AlarmSetting.dart';
 import 'package:duclean/pages/setting/FrequencySetting.dart';
 import 'package:duclean/pages/setting/OptionSetting.dart';
 import 'package:duclean/pages/setting/PulseSetting.dart';
-
 import 'package:duclean/pages/detail/DpDetail.dart';
 import 'package:duclean/pages/detail/PowerDetail.dart';
 
-
-import 'package:material_symbols_icons/symbols.dart';
-import 'package:duclean/services/alarm_store.dart';
-
-import 'package:animations/animations.dart';
+// 기타 도구
+import 'package:duclean/common/context_extensions.dart';
+import 'package:duclean/res/Constants.dart';
 import 'package:duclean/res/customWidget.dart';
-
 import 'package:duclean/res/auth_guard.dart';
+import 'package:duclean/services/routes.dart';
+import 'package:duclean/services/modbus_manager.dart';
 import 'package:duclean/services/auth_service.dart';
+import 'package:duclean/services/alarm_store.dart';
+import 'package:modbus_client/modbus_client.dart';
+import 'package:modbus_client_tcp/modbus_client_tcp.dart';
+
+// provider
+import 'package:provider/provider.dart';
+import 'package:duclean/providers/selected_device.dart';
+import 'package:duclean/providers/dp_history.dart';
+import 'package:duclean/providers/power_history.dart';
+
+// 디자인
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:animations/animations.dart';
+
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -261,7 +263,6 @@ class _MainPageState extends State<MainPage> {
   }
 
   // Read Input Register 함수
-  // MainPage 내의 _startPolling 함수 수정
   Future<void> _startPolling() async {
     _client ??= await ModbusManager.instance.ensureConnected(
       context,
@@ -287,12 +288,56 @@ class _MainPageState extends State<MainPage> {
 
         await _client!.send(_inputs.getReadRequest());
 
-        // ... (데이터 파싱 로직 동일) ...
+        final dp = (_inputs[0] as ModbusUint16Register).value?.toInt() ?? 0;
+        final p1 =
+            ((_inputs[1] as ModbusUint16Register).value?.toDouble() ?? 0) / 10;
+        final p2 =
+            ((_inputs[2] as ModbusUint16Register).value?.toDouble() ?? 0) / 10;
+        final opHi = (_inputs[11] as ModbusUint16Register).value?.toInt() ?? 0;
+        final opLo = (_inputs[12] as ModbusUint16Register).value?.toInt() ?? 0;
+        final pul = (_inputs[13] as ModbusUint16Register).value?.toInt() ?? 0;
+        final run = (_inputs[14] as ModbusUint16Register).value?.toInt() ?? 0;
+        final solNumber =
+            (_inputs[18] as ModbusUint16Register).value?.toInt() ??
+                0; //동작 솔밸브 번호
+
+        final curAlarm =
+            (_inputs[25] as ModbusUint16Register).value?.toInt() ?? 0;
+        final alarmCnt =
+            (_inputs[40] as ModbusUint16Register).value?.toInt() ?? 0;
+
+        final filterUsed =
+            (_inputs[16] as ModbusUint16Register).value?.toInt() ?? 0;
+        final filterChange =
+            (_inputs[17] as ModbusUint16Register).value?.toInt() ?? 0;
+
+        context.read<ConnectionRegistry>().setAlarmCode(
+          _host,
+          _unitId,
+          curAlarm,
+        );
+
+        // 차압 히스토리
+        context.read<DpHistory>().addPointFor(_host, _unitId, dp.toDouble());
+
+        // 전류 히스토리 (power1 = 채널 1, power2 = 채널 2)
+        context.read<PowerHistory>().addPointFor(_host, _unitId, 1, p1);
+        context.read<PowerHistory>().addPointFor(_host, _unitId, 2, p2);
 
         if (!mounted) return;
         setState(() {
-          // ... (상태 업데이트 로직 동일) ...
-          _pollFailCount = 0; // 성공 시 카운트 초기화
+          diffPressure = dp;
+          power1 = p1;
+          power2 = p2;
+          operationTime = ((opHi & 0xFFFF) << 16) | (opLo & 0xFFFF);
+          pulseStatus = pulseStatusLabel(pul);
+          motorStatus = (run != 0);
+          currentAlarm = curAlarm;
+          alarmCount = alarmCnt;
+          filterTime = filterUsed;
+          filterCount = filterChange;
+          _pollFailCount = 0;
+          activeSolValveNo = solNumber;
           _loading = false;
         });
       } catch (e) {
@@ -309,7 +354,7 @@ class _MainPageState extends State<MainPage> {
 
         debugPrint('폴링 실패 카운트: $_pollFailCount, 에러: $e');
 
-        // [핵심 추가] 연속 10회(약 10초) 실패 시 자동 퇴장
+        // 연속 10회(약 10초) 실패 시 자동 퇴장
         if (_pollFailCount >= 10) {
           _poller?.cancel(); // 폴링 중지
           _poller = null;
@@ -515,7 +560,7 @@ class _MainPageState extends State<MainPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            // 단순히 pop하지 않고 목록 화면으로 이동하면서 그 사이의 모든 스택 제거
+            // 이전에 열려있던 페이지 모두 정리 후 connectListPage로 이동
             Navigator.of(context).pushNamedAndRemoveUntil(
               Routes.connectListPage,
                   (route) => false, // 이전의 모든 기록을 지움
@@ -527,9 +572,9 @@ class _MainPageState extends State<MainPage> {
             padding: const EdgeInsets.only(right: 7),
             child: Row(
               children: [
+                // 알람
                 IconButton(
                   onPressed: () {
-                    // 알람 아이콘 onPressed
                     Navigator.of(context).pushNamed(
                       Routes.alarmPage,
                       arguments: <String, dynamic>{
@@ -550,17 +595,16 @@ class _MainPageState extends State<MainPage> {
                         Align(
                           alignment: Alignment.center,
                           child: Icon(
-                            _globalAlarmOpenCount > 0
+                            alarmCount > 0
                                 ? Icons.notifications_on_outlined
                                 : Icons.notifications_none,
                             size: 30,
-                            color: _globalAlarmOpenCount > 0
+                            color: alarmCount > 0
                                 ? Colors.red
                                 : Colors.white,
                             weight: 100,
                           ),
                         ),
-                        // 알람 개수 변수 수정- 25.12.11
                         if (alarmCount > 0)
                           Positioned(
                             right: -2,
@@ -595,6 +639,7 @@ class _MainPageState extends State<MainPage> {
                     ),
                   ),
                 ),
+                // 스케줄
                 IconButton(
                   onPressed: () {
                     Navigator.of(context).push(
@@ -620,9 +665,7 @@ class _MainPageState extends State<MainPage> {
                   },
                   icon: const Icon(Icons.calendar_month, color: Colors.white, size: 30),
                 ),
-
               ],
-
             ),
           ),
         ],
@@ -634,8 +677,6 @@ class _MainPageState extends State<MainPage> {
                 alignment: Alignment.center,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  //mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  //crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Image.asset('assets/images/logo_white.png', width: 95),
                     const SizedBox(width: 5),
@@ -664,7 +705,7 @@ class _MainPageState extends State<MainPage> {
         onTap: (i) async {
           if (i == _currentIndex) return;
           setState(() => _currentIndex = i);
-          // 홈(메인) 탭으로 돌아올 때 최신값 재읽기
+          // 홈 탭으로 돌아올 때 최신값 재읽기
           if (i == 0) {
             await _readOnEnter();
           }
@@ -719,8 +760,8 @@ class _HomeTab extends StatelessWidget {
     required this.h,
     required this.portrait,
     required this.deviceName,
-    required this.hostIP,//IP 표시 추가
-    required this.stationID,//UNIT ID 표시 추가
+    required this.hostIP,
+    required this.stationID,
     required this.diffPressure,
     required this.power1,
     required this.power2,
@@ -753,8 +794,8 @@ class _HomeTab extends StatelessWidget {
   final double w, h;
   final bool portrait;
   final String deviceName;
-  final String hostIP;//추가
-  final int stationID;//추가
+  final String hostIP;
+  final int stationID;
   final int diffPressure,
       operationTime,
       fanFreq,
@@ -816,7 +857,7 @@ class _HomeTab extends StatelessWidget {
               ),
               //IP 주소 다음 줄에 표시
               Text(
-                "IP: $hostIP[ID: $stationID]",
+                "IP: $hostIP [ID: $stationID]",
                 style: TextStyle(
                   fontSize: w * 0.03,
                   fontWeight: FontWeight.w300,
@@ -1409,8 +1450,6 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
-
-
 // 로딩 화면
 class _LoadingCover extends StatelessWidget {
   const _LoadingCover();
@@ -1419,7 +1458,7 @@ class _LoadingCover extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: Container(
-        color: Colors.white.withValues(alpha: 0.85), // 배경 희미하게
+        color: Colors.white.withValues(alpha: 0.85),
         alignment: Alignment.center,
         child: Column(
           mainAxisSize: MainAxisSize.min,

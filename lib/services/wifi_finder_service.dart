@@ -36,7 +36,7 @@ class WifiFinderService {
           // "DUCLEAN_AABBCC" -> "AABBCC" 추출
           final mac = ap.ssid.substring(8);
 
-          // 중복 제거 (가끔 같은 게 두 번 잡힐 때가 있음)
+          // 중복 제거
           if (!foundDevices.contains(mac)) {
             foundDevices.add(mac);
           }

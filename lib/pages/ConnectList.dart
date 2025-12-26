@@ -58,11 +58,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
     final raw = prefs.getStringList(_kDevicesStoreKey);
 
     if (raw == null || raw.isEmpty) {
-      // 초기 데이터
-      _items = const [
-        DeviceKey(host: '192.168.10.190', unitId: 1, name: 'AP-500', number: 1, macAddress: ''),
-      ];
-      await _saveDevices();
+      _items = [];
     } else {
       final list = <DeviceKey>[];
       for (final s in raw) {

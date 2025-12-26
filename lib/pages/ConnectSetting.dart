@@ -214,7 +214,7 @@ class ConnectSettingPage extends StatelessWidget {
               ),
             )
           else if (isConnected && !hasMacAddress)
-          // [추가] 연결은 됐는데 MAC이 없어서 못 넘어가는 경우 안내
+          // 연결은 됐는데 MAC이 없어서 못 넘어가는 경우 안내
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
               child: Text(
