@@ -3,6 +3,7 @@ import 'package:duclean/res/Constants.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:duclean/res/settingWidget.dart';
 import 'package:settings_ui/settings_ui.dart';
+import 'package:duclean/services/modbus_manager.dart';
 
 
 class OptionSettingPage extends StatefulWidget {
@@ -11,11 +12,17 @@ class OptionSettingPage extends StatefulWidget {
     required this.readRegister,
     required this.writeRegister,
     this.onRunModeChanged,
+    required this.host,
+    required this.unitId,
+    required this.name,
   });
 
   final Future<int?> Function(int address) readRegister;
   final Future<bool> Function(int address, int value) writeRegister;
   final void Function(String)? onRunModeChanged;
+  final String host;
+  final int unitId;
+  final String name;
 
   @override
   State<OptionSettingPage> createState() => _OptionSettingPageState();
@@ -50,26 +57,45 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
     });
     for (int attempt = 1; attempt <= _maxRetry; attempt++) {
       try {
-        final mode = await widget.readRegister(34);
-        final stopShow = await widget.readRegister(70);
-        final overDp = await widget.readRegister(57);
-        final multiC = await widget.readRegister(36);
-        final blackRe = await widget.readRegister(35);
-        if (overDp != null && mode != null && stopShow != null && multiC != null && blackRe != null) {
+        // 34번부터 70번까지(총 37개) 한 번의 패킷으로 읽기
+        final List<int>? results = await ModbusManager.instance.readHoldingRange(
+          context,
+          host: widget.host,
+          unitId: widget.unitId,
+          startAddress: 34,
+          count: 37,
+          name: 'OperationSettings',
+        );
+
+        if (results != null && results.length >= 37) {
           if (!mounted) return;
           setState(() {
-            final m = (mode ?? 0);
+            // 인덱스 계산: 결과 리스트[대상 주소 - 시작 주소]
+            final int modeVal    = results[0];  // 34 - 34 = 0
+            final int blackReVal = results[1];  // 35 - 34 = 1
+            final int multiCVal  = results[2];  // 36 - 34 = 2
+            final int overDpVal  = results[23]; // 57 - 34 = 23
+            final int stopShVal  = results[36]; // 70 - 34 = 36
+
+            // 1. 운전 모드 설정 (라벨 매핑)
+            final m = modeVal;
             final safeIndex = (m >= 0 && m < _labels.length) ? m : 0;
             runMode = _labels[safeIndex];
-            stopShowDp = (stopShow == 1);
-            overDpFan = (overDp == 1);
-            multiContact = (multiC == 1);
-            blackoutReward = (blackRe == 1);
+
+            // 2. 불리언(bool) 값 변환 (1이면 true, 아니면 false)
+            stopShowDp     = (stopShVal == 1);
+            overDpFan      = (overDpVal == 1);
+            multiContact   = (multiCVal == 1);
+            blackoutReward = (blackReVal == 1);
+
             _loadFailed = false;
           });
+          return; // 성공 시 함수 종료
         }
-      } catch (_) {}
-      await Future.delayed(const Duration(milliseconds: 500));
+      } catch (e) {
+        debugPrint('로드 시도 $attempt 실패: $e');
+      }
+      await Future.delayed(const Duration(milliseconds: 300));
     }
     if (!mounted) return;
     setState(() {

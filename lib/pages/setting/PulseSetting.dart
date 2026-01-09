@@ -3,16 +3,23 @@ import 'package:duclean/res/Constants.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:duclean/res/settingWidget.dart';
 import 'package:settings_ui/settings_ui.dart';
+import 'package:duclean/services/modbus_manager.dart';
 
 class PulseSettingPage extends StatefulWidget {
   const PulseSettingPage({
     super.key,
     required this.readRegister,
     required this.writeRegister,
+    required this.host,
+    required this.unitId,
+    required this.name,
   });
 
   final Future<int?> Function(int address) readRegister;
   final Future<bool> Function(int address, int value) writeRegister;
+  final String host;
+  final int unitId;
+  final String name;
 
   @override
   State<PulseSettingPage> createState() => _AlarmSettingPageState();
@@ -55,40 +62,51 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
 
     for (int attempt = 1; attempt <= _maxRetry; attempt++) {
       try {
-        // null이면 실패로 간주(값을 0으로 대체하지 않음)
-        final runDp  = await widget.readRegister(27);
-        final stopDp = await widget.readRegister(28);
-        final runTime  = await widget.readRegister(30);
-        final delayTime = await widget.readRegister(31);
-        final solCount = await widget.readRegister(33);
-        final autoTime = await widget.readRegister(64);
-        final addCycle = await widget.readRegister(26);
-        final manualMode = await widget.readRegister(54);
-        final manualCycle = await widget.readRegister(53);
+        // 주소 26번부터 64번까지(총 39개) 한 번에 읽기
+        final List<int>? results = await ModbusManager.instance.readHoldingRange(
+          context,
+          host: widget.host,
+          unitId: widget.unitId,
+          startAddress: 26,
+          count: 39,           // 64 - 26 + 1
+          name: 'PulseSettings',
+        );
 
-        if (runDp != null && stopDp != null && runTime != null && delayTime != null && solCount != null &&
-            autoTime != null && addCycle != null && manualMode != null && manualCycle != null) {
+        if (results != null && results.length >= 39) {
           if (!mounted) return;
           setState(() {
-            pulseRunDp = runDp  < 0 ? 0 : (runDp  > 300 ? 300 : runDp);
-            pulseStopDp = stopDp  < 0 ? 0 : (stopDp  > 100 ? 100 : stopDp);
-            pulseRunTime = runTime  < 0 ? 0 : (runTime  > 9900 ? 9900 : runTime);
-            pulseDelayTime = delayTime  < 0 ? 0 : (delayTime  > 999 ? 999 : delayTime);
-            pulseSolCount = solCount  < 1 ? 1 : (solCount  > 8 ? 8 : solCount);
-            pulseAutoTime = autoTime  < 0 ? 0 : (autoTime  > 3600 ? 3600 : autoTime);
-            pulseAddCycle = addCycle  < 0 ? 0 : (addCycle  > 5 ? 5 : addCycle);
-            pulseManualMode = (manualMode == 1);
-            pulseManualCycle = manualCycle  < 1 ? 1 : (manualCycle  > 50 ? 50 : manualCycle);
+            // 인덱스 계산: 결과 리스트[대상 주소 - 시작 주소(26)]
+            final int addCycleVal   = results[0];  // 26 - 26
+            final int runDpVal      = results[1];  // 27 - 26
+            final int stopDpVal     = results[2];  // 28 - 26
+            final int runTimeVal    = results[4];  // 30 - 26
+            final int delayTimeVal  = results[5];  // 31 - 26
+            final int solCountVal   = results[7];  // 33 - 26
+            final int manualCycleVal = results[27]; // 53 - 26
+            final int manualModeVal  = results[28]; // 54 - 26
+            final int autoTimeVal    = results[38]; // 64 - 26
+
+            // 값 범위 제한(Clamping) 및 할당
+            pulseRunDp       = runDpVal.clamp(0, 300);
+            pulseStopDp      = stopDpVal.clamp(0, 100);
+            pulseRunTime     = runTimeVal.clamp(0, 9900);
+            pulseDelayTime   = delayTimeVal.clamp(0, 999);
+            pulseSolCount    = solCountVal.clamp(1, 8);
+            pulseAutoTime    = autoTimeVal.clamp(0, 3600);
+            pulseAddCycle    = addCycleVal.clamp(0, 5);
+            pulseManualMode  = (manualModeVal == 1);
+            pulseManualCycle = manualCycleVal.clamp(1, 50);
+
             _loadFailed = false;
           });
-          return;
+          return; // 성공 시 종료
         }
-      } catch (_) {
-        // ignore; 다음 attempt로
+      } catch (e) {
+        debugPrint('Pulse 설정 로드 시도 $attempt 실패: $e');
       }
 
-      // 다음 시도 전 짧은 대기 (지수 백오프 원하면 attempt 사용)
-      await Future.delayed(const Duration(milliseconds: 500));
+      // 재시도 대기 시간을 300ms로 조정하여 더 빠르게 반응
+      await Future.delayed(const Duration(milliseconds: 300));
     }
 
     if (!mounted) return;

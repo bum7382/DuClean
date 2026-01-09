@@ -3,16 +3,23 @@ import 'package:duclean/res/Constants.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:duclean/res/settingWidget.dart';
 import 'package:settings_ui/settings_ui.dart';
+import 'package:duclean/services/modbus_manager.dart';
 
 class FrequencySettingPage extends StatefulWidget {
   const FrequencySettingPage({
     super.key,
     required this.readRegister,
     required this.writeRegister,
+    required this.host,
+    required this.unitId,
+    required this.name,
   });
 
   final Future<int?> Function(int address) readRegister;
   final Future<bool> Function(int address, int value) writeRegister;
+  final String host;
+  final int unitId;
+  final String name;
 
   @override
   State<FrequencySettingPage> createState() => _AlarmSettingPageState();
@@ -48,33 +55,46 @@ class _AlarmSettingPageState extends State<FrequencySettingPage> {
 
     for (int attempt = 1; attempt <= _maxRetry; attempt++) {
       try {
-        // null이면 실패로 간주(값을 0으로 대체하지 않음)
-        final mode  = await widget.readRegister(50);
-        final run = await widget.readRegister(60);
-        final min  = await widget.readRegister(52);
-        final max = await widget.readRegister(51);
-        final adjust = await widget.readRegister(59);
+        // 50번부터 60번까지 총 11개의 레지스터를 한 번에 읽기
+        final List<int>? results = await ModbusManager.instance.readHoldingRange(
+          context,
+          host: widget.host,
+          unitId: widget.unitId,
+          startAddress: 50,
+          count: 11,
+          name: 'FrequencySettings',
+        );
 
-        if (mode != null && run != null && min != null && max != null && adjust != null) {
+        if (results != null && results.length >= 11) {
           if (!mounted) return;
           setState(() {
-            final m = (mode ?? 0);
-            final safeIndex = (m >= 0 && m < _labels.length) ? m : 0;
+            // 인덱스 계산: 결과 리스트[대상 주소 - 시작 주소]
+            final int modeVal   = results[0];  // 주소 50
+            final int maxVal    = results[1];  // 주소 51
+            final int minVal    = results[2];  // 주소 52
+            final int adjVal    = results[9];  // 주소 59 (59 - 50 = 9)
+            final int runVal    = results[10]; // 주소 60 (60 - 50 = 10)
+
+            // 1. Mode 설정
+            final safeIndex = (modeVal >= 0 && modeVal < _labels.length) ? modeVal : 0;
             freqMode = _labels[safeIndex];
-            freqRun = run  < 0 ? 0 : (run  > 400 ? 400 : run);
-            freqMin = min  < 0 ? 0 : (min  > 20 ? 20 : min);
-            freqMax = max  < -500 ? -500 : (max  > 500 ? 500 : max);
-            freqAdjust = adjust  < 1 ? 1 : (adjust  > 8 ? 8 : adjust);
+
+            // 2. 값 범위 제한(Clamping) 및 할당
+            freqRun    = runVal.clamp(0, 400);
+            freqMin    = minVal.clamp(0, 20);
+            freqMax    = maxVal.clamp(-500, 500); // 주의: ModbusManager가 signed를 지원해야 함
+            freqAdjust = adjVal.clamp(1, 8);
+
             _loadFailed = false;
           });
           return;
         }
-      } catch (_) {
-        // ignore; 다음 attempt로
+      } catch (e) {
+        debugPrint('로드 시도 $attempt 실패: $e');
       }
 
-      // 다음 시도 전 짧은 대기 (지수 백오프 원하면 attempt 사용)
-      await Future.delayed(const Duration(milliseconds: 500));
+      // 다음 시도 전 대기 시간 단축 (속도 향상)
+      await Future.delayed(const Duration(milliseconds: 300));
     }
 
     if (!mounted) return;

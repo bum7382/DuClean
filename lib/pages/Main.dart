@@ -508,6 +508,9 @@ class _MainPageState extends State<MainPage> {
         child: FrequencySettingPage(
           readRegister: (addr) => readRegister(addr),
           writeRegister: (addr, val) => writeRegister(addr, val),
+          host: _host,
+          unitId: _unitId,
+          name: _deviceName,
         ),
       ),
       AuthGuard(
@@ -515,6 +518,9 @@ class _MainPageState extends State<MainPage> {
         child: PulseSettingPage(
           readRegister: (addr) => readRegister(addr),
           writeRegister: (addr, val) => writeRegister(addr, val),
+          host: _host,
+          unitId: _unitId,
+          name: _deviceName,
         ),
       ),
       AuthGuard(
@@ -522,6 +528,9 @@ class _MainPageState extends State<MainPage> {
         child: AlarmSettingPage(
           readRegister: (addr) => readRegister(addr),
           writeRegister: (addr, val) => writeRegister(addr, val),
+          host: _host,
+          unitId: _unitId,
+          name: _deviceName,
         ),
       ),
       AuthGuard(
@@ -529,6 +538,9 @@ class _MainPageState extends State<MainPage> {
         child: OptionSettingPage(
           readRegister: (addr) => readRegister(addr),
           writeRegister: (addr, val) => writeRegister(addr, val),
+          host: _host,
+          unitId: _unitId,
+          name: _deviceName,
           onRunModeChanged: (label) {
             if (!mounted) return;
             setState(() {

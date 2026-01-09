@@ -93,10 +93,10 @@ packages:
     dependency: transitive
     description:
       name: equatable
-      sha256: "567c64b3cb4cf82397aac55f4f0cbd3ca20d77c6c03bedbc4ceaddc08904aef7"
+      sha256: "3e0141505477fd8ad55d6eb4e7776d3fe8430be8e497ccb1521370c3f21a3e2b"
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.7"
+    version: "2.0.8"
   event_bus:
     dependency: transitive
     description:
@@ -117,10 +117,10 @@ packages:
     dependency: transitive
     description:
       name: ffi
-      sha256: "289279317b4b16eb2bb7e271abccd4bf84ec9bdcbe999e278a94b804f5630418"
+      sha256: d07d37192dbf97461359c1518788f203b0c9102cfd2c35a716b823741219542c
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.4"
+    version: "2.1.5"
   file:
     dependency: transitive
     description:
@@ -300,10 +300,10 @@ packages:
     dependency: "direct main"
     description:
       name: mqtt_client
-      sha256: "8bcd0bd6dd85343df249164f9d4b2232002b2ce8742875431421863d3cbcd0db"
+      sha256: "2e7e66e01e0e32a00e9d42bbbc6c2a3e0778a379fd4e94df4bce0871650df8e7"
       url: "https://pub.dev"
     source: hosted
-    version: "10.11.3"
+    version: "10.11.4"
   nested:
     dependency: transitive
     description:

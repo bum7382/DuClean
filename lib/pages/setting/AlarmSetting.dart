@@ -3,16 +3,23 @@ import 'package:duclean/res/Constants.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:duclean/res/settingWidget.dart';
 import 'package:settings_ui/settings_ui.dart';
+import 'package:duclean/services/modbus_manager.dart';
 
 class AlarmSettingPage extends StatefulWidget {
   const AlarmSettingPage({
     super.key,
     required this.writeRegister,
     required this.readRegister,
+    required this.host,
+    required this.unitId,
+    required this.name,
   });
 
   final Future<int?> Function(int address) readRegister;
   final Future<bool> Function(int address, int value) writeRegister;
+  final String host;
+  final int unitId;
+  final String name;
 
   @override
   State<AlarmSettingPage> createState() => _AlarmSettingPageState();
@@ -47,31 +54,33 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
 
     for (int attempt = 1; attempt <= _maxRetry; attempt++) {
       try {
-        // null이면 실패로 간주(값을 0으로 대체하지 않음)
-        final filRpT  = await widget.readRegister(37);
-        final filRrpT = await widget.readRegister(69);
-        final motorRv  = await widget.readRegister(62);
-        final alarm1 = await widget.readRegister(42);
-        final alarm2 = await widget.readRegister(55);
+        // 주소 37번부터 69번까지 포함하도록 33개를 한 번에 읽음
+        final List<int>? results = await ModbusManager.instance.readHoldingRange(
+          context,
+          host: widget.host, // 호스트 정보 필요
+          unitId: widget.unitId,
+          startAddress: 37,
+          count: 33,
+          name: 'AlarmSettingsBatch',
+        );
 
-        if (filRpT != null && filRrpT != null && motorRv != null) {
+        if (results != null && results.length >= 33) {
           if (!mounted) return;
           setState(() {
-            filterReplaceTime        = filRpT  < 0 ? 0 : (filRpT  > 32000 ? 32000 : filRpT);
-            filterReplaceRepeatTime  = filRrpT < 0 ? 0 : (filRrpT > 8760  ? 8760  : filRrpT);
-            motorReverse             = (motorRv == 1);
-            alarm1Contact = alarm1;
-            alarm2Contact = alarm2;
+            // 인덱스 계산: (대상 주소 - 시작 주소)
+            filterReplaceTime       = results[0];  // 37 - 37
+            alarm1Contact           = results[5];  // 42 - 37
+            alarm2Contact           = results[18]; // 55 - 37
+            motorReverse            = (results[25] == 1); // 62 - 37
+            filterReplaceRepeatTime = results[32]; // 69 - 37
             _loadFailed = false;
           });
-          return;
+          return; // 성공 시 종료
         }
-      } catch (_) {
-        // ignore; 다음 attempt로
+      } catch (e) {
+        debugPrint('Attempt $attempt failed: $e');
       }
-
-      // 다음 시도 전 짧은 대기 (지수 백오프 원하면 attempt 사용)
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 300));
     }
 
     if (!mounted) return;
