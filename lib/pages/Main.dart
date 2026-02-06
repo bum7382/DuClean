@@ -120,6 +120,9 @@ class _MainPageState extends State<MainPage> {
   var powerLimit = 0; // 과전류 설정
   var powerDiff = 0; // 전류 편차
 
+  int freqSelectMode = 0; // 주파수 출력
+  int pulseAutoMode = 0;  // 수동 펄스모드
+
   bool pulseDescription = false;  // 펄싱 차압 <-> 솔 밸브
   bool _loading = true;
   int _pollFailCount = 0;
@@ -229,6 +232,9 @@ class _MainPageState extends State<MainPage> {
     final pLimit = _get(32, defaultValue: 0);
     final pDiff = _get(44, defaultValue: 0);
 
+    final fMode = _get(50, defaultValue: 0);
+    final pAuto = _get(54, defaultValue: 0);
+
     if (!mounted) return;
     setState(() {
       runMode = (mode != null && mode >= 0 && mode < runModeList.length)
@@ -243,6 +249,8 @@ class _MainPageState extends State<MainPage> {
       dpLowAlarmDelay = dLAlarmD;
       powerLimit = pLimit;
       powerDiff = pDiff;
+      freqSelectMode = fMode;
+      pulseAutoMode = pAuto;
     });
   }
 
@@ -417,8 +425,7 @@ class _MainPageState extends State<MainPage> {
         return "자동 펄스";
       case 2:
         pulseColor = Color(0xffF4FD00);
-        final man = (_inputs[54] as ModbusUint16Register).value?.toInt() ?? 0;
-        return man == 0 ? "수동 펄스" : "전자동 펄스";
+        return pulseAutoMode == 0 ? "수동 펄스" : "전자동 펄스";
       case 3:
         pulseColor = Color(0xff4BFC06);
         return "추가 펄스";
@@ -498,6 +505,7 @@ class _MainPageState extends State<MainPage> {
           powerLimit: powerLimit,
           powerDiff: powerDiff,
           pulseDescription: pulseDescription,
+          freqSelectMode: freqSelectMode,
           readRegister: readRegister,
           writeRegister: writeRegister,
           onToggleRun: _toggleRun,
@@ -807,6 +815,7 @@ class _HomeTab extends StatelessWidget {
     required this.powerDiff,
     required this.readRegister,
     required this.writeRegister,
+    required this.freqSelectMode,
   });
 
   final double w, h;
@@ -825,6 +834,7 @@ class _HomeTab extends StatelessWidget {
       dpLowLimit,
       dpLowAlarmDelay,
       powerLimit,
+      freqSelectMode,
       powerDiff;
   final int filterTime;
   final int filterCount;
@@ -1190,12 +1200,10 @@ class _HomeTab extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    " $fanFreq Hz",
+                                    freqSelectMode == 0 ? "50/60Hz(기본주파수)" : " $fanFreq Hz",
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: motorStatus
-                                          ? Colors.white
-                                          : AppColor.duBlue,
+                                      fontSize: freqSelectMode == 0 ? 10 : 12, // 글자가 길어질 수 있으므로 크기 조절
+                                      color: motorStatus ? Colors.white : AppColor.duBlue,
                                     ),
                                   ),
                                 ],
@@ -1232,12 +1240,10 @@ class _HomeTab extends StatelessWidget {
                                       vertical: 3,
                                     ),
                                     child: Text(
-                                      "SOL $activeSolValveNo",
+                                      activeSolValveNo == 0 ? "정지" : "SOL $activeSolValveNo",
                                       style: TextStyle(
                                         fontSize: 10,
-                                        color: motorStatus
-                                            ? AppColor.duBlue
-                                            : Colors.white,
+                                        color: motorStatus ? AppColor.duBlue : Colors.white,
                                         fontWeight: FontWeight.w300,
                                       ),
                                     ),
