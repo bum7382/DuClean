@@ -12,16 +12,15 @@ import 'package:duclean/pages/detail/DpDetail.dart';
 import 'package:duclean/pages/detail/PowerDetail.dart';
 
 // 기타 도구
-import 'package:duclean/common/context_extensions.dart';
-import 'package:duclean/res/Constants.dart';
-import 'package:duclean/res/customWidget.dart';
-import 'package:duclean/res/auth_guard.dart';
-import 'package:duclean/services/routes.dart';
-import 'package:duclean/services/modbus_manager.dart';
-import 'package:duclean/services/auth_service.dart';
-import 'package:duclean/services/alarm_store.dart';
-import 'package:modbus_client/modbus_client.dart';
-import 'package:modbus_client_tcp/modbus_client_tcp.dart';
+import 'package:duclean/res/auth_guard.dart'; // 권한 설정 페이지
+import 'package:duclean/services/routes.dart';  // 라우트
+import 'package:duclean/services/auth_service.dart';  // 권한 설정 서비스
+import 'package:duclean/services/alarm_store.dart'; // 알람 저장
+
+// 모드버스
+import 'package:modbus_client/modbus_client.dart';  // 모드버스 패키지
+import 'package:modbus_client_tcp/modbus_client_tcp.dart';  // 모드버스 패키지
+import 'package:duclean/services/modbus_manager.dart';  // 모드버스 설정
 
 // provider
 import 'package:provider/provider.dart';
@@ -30,8 +29,11 @@ import 'package:duclean/providers/dp_history.dart';
 import 'package:duclean/providers/power_history.dart';
 
 // 디자인
-import 'package:material_symbols_icons/symbols.dart';
-import 'package:animations/animations.dart';
+import 'package:material_symbols_icons/symbols.dart'; // 심볼
+import 'package:animations/animations.dart';  // 화면 전환 애니메이션
+import 'package:duclean/common/context_extensions.dart';  // 화면 크기
+import 'package:duclean/res/Constants.dart';  // 상수
+import 'package:duclean/res/customWidget.dart'; // 커스텀 위젯
 
 
 class MainPage extends StatefulWidget {
