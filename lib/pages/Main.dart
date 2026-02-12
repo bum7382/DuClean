@@ -103,7 +103,7 @@ class _MainPageState extends State<MainPage> {
 
   var alarmCount = 0; // 발생알람개수
   var diStatusValue; // DI 상태값
-  var firmwareVersion; // 펌웨어 버전
+  var firmwareVersion = 0.0; // 펌웨어 버전- 표시 추가 26.02.12
 
   // Holding Register(4x)
   final runModeList = ['판넬', '연동', '원격', '통신(RS485)']; // 동작 설정
@@ -240,6 +240,7 @@ class _MainPageState extends State<MainPage> {
       runMode = (mode != null && mode >= 0 && mode < runModeList.length)
           ? runModeList[mode]
           : '';
+
       fanFreq = freq;
       pulseDiff = diff;
       solCount = sol;
@@ -320,7 +321,9 @@ class _MainPageState extends State<MainPage> {
             (_inputs[16] as ModbusUint16Register).value?.toInt() ?? 0;
         final filterChange =
             (_inputs[17] as ModbusUint16Register).value?.toInt() ?? 0;
-
+        // 펌웨어 버전 값 호출 추가 : 26.02.12
+        final fwVer =
+            ((_inputs[69] as ModbusUint16Register).value?.toDouble() ?? 0) / 10;
         context.read<ConnectionRegistry>().setAlarmCode(
           _host,
           _unitId,
@@ -336,6 +339,7 @@ class _MainPageState extends State<MainPage> {
 
         if (!mounted) return;
         setState(() {
+          firmwareVersion = fwVer;//기판 펌웨어 버전 표시 추가: 26.02.12
           diffPressure = dp;
           power1 = p1;
           power2 = p2;
@@ -348,7 +352,7 @@ class _MainPageState extends State<MainPage> {
           filterCount = filterChange;
           _pollFailCount = 0;
           activeSolValveNo = solNumber;
-          _loading = false;
+                    _loading = false;
         });
       } catch (e) {
         if (!mounted) return;
@@ -483,6 +487,7 @@ class _MainPageState extends State<MainPage> {
           deviceName: _deviceName,//Body TOP
           hostIP:_host,//Body 2row
           stationID:_unitId,//Body 2row sub
+          fwVer:firmwareVersion,//기판 펌웨어 버전 표시 추가: 26.02.12
           diffPressure: diffPressure,
           power1: power1,
           power2: power2,
@@ -816,8 +821,10 @@ class _HomeTab extends StatelessWidget {
     required this.readRegister,
     required this.writeRegister,
     required this.freqSelectMode,
+    required this.fwVer,
+    //firmwareVersion = fwVer;기판 펌웨어 버전 표시 추가: 26.02.12
   });
-
+  final double fwVer; // 펌웨어 버전
   final double w, h;
   final bool portrait;
   final String deviceName;
@@ -836,6 +843,7 @@ class _HomeTab extends StatelessWidget {
       powerLimit,
       freqSelectMode,
       powerDiff;
+
   final int filterTime;
   final int filterCount;
   final double power1, power2;
@@ -929,6 +937,24 @@ class _HomeTab extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         //박스 내 세로축 정렬상태 (간격 균등 배치)
                         children: [
+                          SizedBox(
+                            width: w * 0.8,
+                            child: Row(
+                              // 펌웨어 버전
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text(
+                                  "F.W : $fwVer V",
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w300,
+                                    color: motorStatus
+                                        ? Colors.greenAccent
+                                        : Colors.black,
+                                  ),
+                                ),],
+                             ),
+                            ),
 
                           SizedBox(
                             width: w * 0.8,
@@ -1200,7 +1226,7 @@ class _HomeTab extends StatelessWidget {
                                     ),
                                   ),
                                   Text(
-                                    freqSelectMode == 0 ? "50/60Hz(기본주파수)" : " $fanFreq Hz",
+                                    freqSelectMode == 0 ? "50/60Hz" : " $fanFreq Hz",//(기본주파수)
                                     style: TextStyle(
                                       fontSize: freqSelectMode == 0 ? 10 : 12, // 글자가 길어질 수 있으므로 크기 조절
                                       color: motorStatus ? Colors.white : AppColor.duBlue,
@@ -1243,8 +1269,8 @@ class _HomeTab extends StatelessWidget {
                                       activeSolValveNo == 0 ? "정지" : "SOL $activeSolValveNo",
                                       style: TextStyle(
                                         fontSize: 10,
-                                        color: motorStatus ? AppColor.duBlue : Colors.white,
-                                        fontWeight: FontWeight.w300,
+                                        color: motorStatus ? AppColor.duBlack : Colors.white,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ),

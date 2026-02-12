@@ -14,6 +14,7 @@ import 'package:duclean/services/motor_schedule_service.dart';
 import 'dart:math';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:duclean/services/auth_service.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -47,6 +48,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('ko', 'KR'), // 한국어 추가
+      ],
+      locale: const Locale('ko', 'KR'),
       title: 'DuClean',
       theme: ThemeData(
         fontFamily: 'Pretendard',

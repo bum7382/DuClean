@@ -50,6 +50,23 @@ class _AlarmPageState extends State<AlarmPage> {
   String? _targetMac;
   bool _isInit = false;
 
+  // 필터 및 기간 상태 변수
+  int? _selectedCode; // null이면 전체
+  DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  DateTime _endDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, 23, 59, 59);
+
+  // 필터 목록 정의
+  final List<Map<String, dynamic>> _filters = [
+    {'code': null, 'label': '전체'},
+    {'code': 1, 'label': '과전류'},
+    {'code': 2, 'label': '운전에러'},
+    {'code': 3, 'label': '모터 역방향'},
+    {'code': 4, 'label': '전류 불평형'},
+    {'code': 5, 'label': '과차압'},
+    {'code': 6, 'label': '필터교체'},
+    {'code': 7, 'label': '저차압'},
+  ];
+
   bool _isSyncing = false;
 
   @override
@@ -83,26 +100,20 @@ class _AlarmPageState extends State<AlarmPage> {
     }
   }
 
-  // [추가] 백엔드 데이터 가져오기 및 로컬 저장
-  // AlarmPage.dart 내의 수정된 부분
 
-// 동기화 중복 실행 방지를 위한 플래그
-
-
-// 1. 서버 동기화 함수 개선 (성공 여부 반환)
+// 서버 동기화 함수
   Future<bool> _syncWithServer() async {
     if (_targetHost == null && _targetMac == null) return false;
     if (_isSyncing) return false; // 이미 동기화 중이면 중복 실행 방지
 
     _isSyncing = true;
     try {
-      final Map<String, String> queryParams = {};
+      final Map<String, String> queryParams = {
+        'start': _startDate.toIso8601String(),
+        'end': _endDate.toIso8601String(),
+      };
       if (_targetHost != null) queryParams['ip'] = _targetHost!;
       if (_targetMac != null) queryParams['mac'] = _targetMac!;
-
-      // [중요] 과거 내역(연결 끊겼을 때 발생한 것)을 가져오려면
-      // active=true 조건을 빼거나 서버가 전체를 주도록 해야 합니다.
-      // queryParams['active'] = 'true'; // 이 줄을 주석 처리하거나 제거하세요.
 
       final uri = Uri.parse('$_backendBaseUrl/api/logs/filter').replace(queryParameters: queryParams);
       final response = await http.get(uri).timeout(const Duration(seconds: 5));
@@ -110,15 +121,7 @@ class _AlarmPageState extends State<AlarmPage> {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final List<dynamic> logs = json['data'];
-
-        // 이전에 만든 배치 동기화 메서드 호출
         await AlarmStore.syncWithServer(logs.cast<Map<String, dynamic>>(), defaultName: _targetName);
-        if (mounted) {
-          setState(() {
-            // 이 호출이 StreamBuilder를 다시 작동하게 트리거합니다.
-            _stream = _alarmStream();
-          });
-        }
         return true;
       }
       return false;
@@ -130,30 +133,116 @@ class _AlarmPageState extends State<AlarmPage> {
     }
   }
 
-// 2. 스트림 루프에서 주기적으로 동기화 호출
+// 동기화 호출
   Stream<List<AlarmRecord>> _alarmStream() async* {
-    int syncCounter = 0;
-
     while (mounted) {
-      // 매 루프(1초)마다 로컬 DB를 읽어 화면에 즉시 반영
       List<AlarmRecord> allRecords = await AlarmStore.loadAllSortedDesc();
 
+      // 1. 기기 필터링
       if (_targetHost != null && _targetHost!.isNotEmpty) {
-        yield allRecords.where((e) => e.host == _targetHost).toList();
-      } else {
-        yield allRecords;
+        allRecords = allRecords.where((e) => e.host == _targetHost).toList();
       }
 
-      // [자동 재시도] 10초마다 한 번씩 서버 동기화 시도
-      // (네트워크가 끊겨있어도 10초마다 자동으로 재시도하게 됨)
-      syncCounter++;
-      if (syncCounter >= 10) {
-        _syncWithServer();
-        syncCounter = 0;
+      // 2. 알람 종류 필터링
+      if (_selectedCode != null) {
+        allRecords = allRecords.where((e) => e.code == _selectedCode).toList();
       }
 
+      // 3. 기간 필터링
+      allRecords = allRecords.where((e) {
+        final dt = DateTime.fromMillisecondsSinceEpoch(e.tsMs);
+        return dt.isAfter(_startDate) && dt.isBefore(_endDate);
+      }).toList();
+
+      yield allRecords;
       await Future.delayed(const Duration(seconds: 1));
     }
+  }
+
+  // 기간 선택 팝업
+  Future<void> _showDateRangePicker() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      locale: const Locale('ko', 'KR'),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            // 전체적인 테마 색상 설정
+            colorScheme: ColorScheme.light(
+              primary: AppColor.duBlue,
+              onPrimary: Colors.white,
+              secondary: AppColor.duBlue,
+              onSecondary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black87,
+              primaryContainer: AppColor.duBlue.withValues(alpha: 0.1),
+              onPrimaryContainer: AppColor.duBlue,
+            ),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: AppColor.duBlue,
+              foregroundColor: Colors.white,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: AppColor.duBlue,
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _startDate = DateTime(picked.start.year, picked.start.month, picked.start.day, 0, 0, 0);
+        _endDate = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
+        _stream = _alarmStream();
+      });
+      _syncWithServer();
+    }
+  }
+
+  // 상단 필터 위젯
+  Widget _buildFilterBar() {
+    return Container(
+      height: 50,
+      color: Colors.white,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        itemCount: _filters.length,
+        itemBuilder: (context, index) {
+          final filter = _filters[index];
+          final isSelected = _selectedCode == filter['code'];
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: ChoiceChip(
+              label: Text(filter['label']),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedCode = filter['code'];
+                  _stream = _alarmStream();
+                });
+              },
+              selectedColor: AppColor.duBlue.withAlpha(40),
+              labelStyle: TextStyle(
+                color: isSelected ? AppColor.duBlue : Colors.black54,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              backgroundColor: Colors.grey[100],
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              side: BorderSide.none,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _onDeleteAllPressed() async {
@@ -185,7 +274,7 @@ class _AlarmPageState extends State<AlarmPage> {
 
     if (!ok) return;
 
-    // [수정됨] 기기 선택 여부에 따라 삭제 로직 분기
+    // 기기 선택 여부에 따라 삭제 로직 분기
     if (_targetHost != null && _targetHost!.isNotEmpty) {
       // 1. 특정 기기 알람만 삭제
       await AlarmStore.deleteByHost(_targetHost!);
@@ -219,133 +308,137 @@ class _AlarmPageState extends State<AlarmPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        /*
         actions: [
-          Padding(
-              padding: EdgeInsetsGeometry.only(right: w * 0.04),
-              child: IconButton(
-                onPressed: _onDeleteAllPressed,
-                icon: const Icon(Icons.delete, color: Colors.white, size: 30),
-              )
-          )
+          IconButton(
+            icon: const Icon(Icons.tune, color: Colors.white), // 필터/날짜 아이콘
+            onPressed: _showDateRangePicker,
+          ),
         ],
-         */
         backgroundColor: AppColor.duBlue,
       ),
-      body: StreamBuilder<List<AlarmRecord>>(
-        stream: _stream,
-        builder: (context, snap) {
-          if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final entries = snap.data!;
+      body:
+        Column(
+          children: [
+            _buildFilterBar(), // 상단 필터 바 추가
+            const Divider(height: 1, thickness: 0.5),
+            Expanded(
+            child: StreamBuilder<List<AlarmRecord>>(
+              stream: _stream,
+              builder: (context, snap) {
+                if (!snap.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final entries = snap.data!;
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              // 당겨서 새로고침 시 서버 동기화 수행
-              await _syncWithServer();
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    // 당겨서 새로고침 시 서버 동기화 수행
+                    await _syncWithServer();
 
-              // Stream은 자동으로 돌고 있지만 즉각 반영을 위해 setState
-              if(mounted) {
-                setState(() { _stream = _alarmStream(); });
-              }
-            },
-            edgeOffset: 10,
-            displacement: 10,
-            color: Colors.white,
-            backgroundColor: AppColor.duBlue,
-            child: entries.isEmpty
-                ? Stack(
-              children: [
-                ListView(), // ScrollView가 있어야 RefreshIndicator 동작함
-                const Center(child: Text('알람 내역이 없습니다.', style: TextStyle(color: Colors.grey))),
-              ],
-            )
-                : ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: entries.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, i) {
-                final e = entries[i];
-
-                final occurredAt  = DateTime.fromMillisecondsSinceEpoch(e.tsMs, isUtc: true).toLocal();
-                final occurredTxt = _formatKTime(occurredAt);
-
-                final clearedAt   = (e.clearedTsMs != null)
-                    ? DateTime.fromMillisecondsSinceEpoch(e.clearedTsMs!, isUtc: true).toLocal()
-                    : null;
-                final clearedTxt  = (clearedAt != null) ? _formatKTime(clearedAt) : null;
-
-                final msg = _alarmMessage(e.code);
-                final isCleared = clearedAt != null;
-
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(10),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    // Stream은 자동으로 돌고 있지만 즉각 반영을 위해 setState
+                    if(mounted) {
+                      setState(() { _stream = _alarmStream(); });
+                    }
+                  },
+                  edgeOffset: 10,
+                  displacement: 10,
+                  color: Colors.white,
+                  backgroundColor: AppColor.duBlue,
+                  child: entries.isEmpty
+                      ? Stack(
                     children: [
-                      // 왼쪽: 기기명 + 시간
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  e.name,
-                                  style: TextStyle( fontSize: 11, fontWeight: FontWeight.w300,
-                                    color: isCleared ? Colors.grey : AppColor.duBlue,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  e.host,
-                                  style: TextStyle( fontSize: 10, fontWeight: FontWeight.w300,
-                                    color: isCleared ? Colors.grey : Colors.black,
-                                  ),
-                                ),
-                              ],
+                      ListView(), // ScrollView가 있어야 RefreshIndicator 동작함
+                      const Center(child: Text('알람 내역이 없습니다.', style: TextStyle(color: Colors.grey))),
+                    ],
+                  )
+                      : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    itemCount: entries.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, i) {
+                      final e = entries[i];
+
+                      final occurredAt  = DateTime.fromMillisecondsSinceEpoch(e.tsMs, isUtc: true).toLocal();
+                      final occurredTxt = _formatKTime(occurredAt);
+
+                      final clearedAt   = (e.clearedTsMs != null)
+                          ? DateTime.fromMillisecondsSinceEpoch(e.clearedTsMs!, isUtc: true).toLocal()
+                          : null;
+                      final clearedTxt  = (clearedAt != null) ? _formatKTime(clearedAt) : null;
+
+                      final msg = _alarmMessage(e.code);
+                      final isCleared = clearedAt != null;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withAlpha(10),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
                             ),
-                            const SizedBox(height: 4),
-                            Text("발생: $occurredTxt",
-                                style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                            if (isCleared) ...[
-                              const SizedBox(height: 2),
-                              Text("해제: $clearedTxt",
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                            ],
                           ],
                         ),
-                      ),
-                      // 오른쪽: 알람 메시지
-                      Text(
-                        msg,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: isCleared ? Colors.grey : Colors.redAccent,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 왼쪽: 기기명 + 시간
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        e.name,
+                                        style: TextStyle( fontSize: 11, fontWeight: FontWeight.w300,
+                                          color: isCleared ? Colors.grey : AppColor.duBlue,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        e.host,
+                                        style: TextStyle( fontSize: 10, fontWeight: FontWeight.w300,
+                                          color: isCleared ? Colors.grey : Colors.black,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text("발생: $occurredTxt",
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  if (isCleared) ...[
+                                    const SizedBox(height: 2),
+                                    Text("해제: $clearedTxt",
+                                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            // 오른쪽: 알람 메시지
+                            Text(
+                              msg,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: isCleared ? Colors.grey : Colors.redAccent,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 );
               },
             ),
-          );
-        },
-      ),
+                  ),
+          ],
+        ),
     );
   }
 }
