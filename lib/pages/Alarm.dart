@@ -133,9 +133,11 @@ class _AlarmPageState extends State<AlarmPage> {
     }
   }
 
-// 동기화 호출
+  // 동기화 호출
   Stream<List<AlarmRecord>> _alarmStream() async* {
     while (mounted) {
+      await _syncWithServer();
+
       List<AlarmRecord> allRecords = await AlarmStore.loadAllSortedDesc();
 
       // 1. 기기 필터링
@@ -155,7 +157,7 @@ class _AlarmPageState extends State<AlarmPage> {
       }).toList();
 
       yield allRecords;
-      await Future.delayed(const Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 3));
     }
   }
 
@@ -170,6 +172,7 @@ class _AlarmPageState extends State<AlarmPage> {
       builder: (context, child) {
         return Theme(
           data: ThemeData.light().copyWith(
+            scaffoldBackgroundColor: AppColor.bg,
             // 전체적인 테마 색상 설정
             colorScheme: ColorScheme.light(
               primary: AppColor.duBlue,

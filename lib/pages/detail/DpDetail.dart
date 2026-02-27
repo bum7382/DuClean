@@ -48,17 +48,20 @@ class _DpDetailPageState extends State<DpDetailPage> {
     // 67 : 저차압 설정
     // 68 : 저차압 알람지연
 
-    final dHLimit  = await widget.readRegister(29) ?? 0;
-    final dHAlarmD = await widget.readRegister(65) ?? 0;
-    final dLLimit  = await widget.readRegister(67) ?? 0;
-    final dLAlarmD = await widget.readRegister(68) ?? 0;
+    final results = await Future.wait([
+      widget.readRegister(29),
+      widget.readRegister(65),
+      widget.readRegister(67),
+      widget.readRegister(68),
+    ]);
 
     if (!mounted) return;
+
     setState(() {
-      _dpHighLimit      = dHLimit;
-      _dpHighAlarmDelay = dHAlarmD;
-      _dpLowLimit       = dLLimit;
-      _dpLowAlarmDelay  = dLAlarmD;
+      _dpHighLimit      = results[0] ?? 0;
+      _dpHighAlarmDelay = results[1] ?? 0;
+      _dpLowLimit       = results[2] ?? 0;
+      _dpLowAlarmDelay  = results[3] ?? 0;
       _loading          = false;
     });
   }

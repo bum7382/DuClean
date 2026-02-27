@@ -45,15 +45,18 @@ class _PowerDetailPageState extends State<PowerDetailPage> {
     // 41 : 과전류 알람지연(EOCR 지연) 25.12.11
     // 44 : 전류 편차
 
-    final pLimit = await widget.readRegister(32) ?? 0;
-    final pDelay = await widget.readRegister(41) ?? 0;//과전류 알람지연 추가
-    final pDiff  = await widget.readRegister(44) ?? 0;
+    final results = await Future.wait([
+      widget.readRegister(32),
+      widget.readRegister(41),
+      widget.readRegister(44),
+    ]);
 
     if (!mounted) return;
+
     setState(() {
-      _powerLimit = pLimit;
-      _powerDelay = pDelay;//추가
-      _powerDiff  = pDiff;
+      _powerLimit = results[0] ?? 0;
+      _powerDelay = results[1] ?? 0;
+      _powerDiff  = results[2] ?? 0;
       _loading    = false;
     });
   }
