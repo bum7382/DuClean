@@ -1,16 +1,90 @@
-# duclean
+<div align="center">
 
-A new Flutter project.
+# 💨 듀크린 집진기 (Duclean Dust Collector)
+### **"산업용 집진기의 실시간 제어와 지능형 관리를 위한 스마트 솔루션"**
 
-## Getting Started
+<br>
 
-This project is a starting point for a Flutter application.
+![서비스 메인 화면](https://github.com/user-attachments/assets/40f4f942-4e4b-434d-a3e1-c2be3cc3d9bb)
 
-A few resources to get you started if this is your first Flutter project:
+</div>
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+<br>
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+---
+
+<br>
+
+## 💡 프로젝트 소개
+**듀크린 집진기** 프로젝트는 산업 현장에서 사용되는 집진기를 효율적으로 관리하고 원격으로 제어하기 위해 개발된 **산업-학계 연계 모바일 솔루션**입니다. 복잡한 산업용 기기의 데이터를 시각화하고, **Modbus 및 MQTT** 프로토콜을 활용해 현장 기기와 앱 간의 끊김 없는 실시간 통신을 구현했습니다.
+
+<br>
+
+---
+
+<br>
+
+## 🔥 핵심 기능
+**"산업 현장의 효율을 극대화하는 실시간 제어 시스템"**
+
+| 기능 | 상세 설명 |
+| :--- | :--- |
+| **🕹️ 실시간 기기 제어** | **Modbus 프로토콜**을 기반으로 산업용 집진기와 실시간으로 정보를 교환하고 설정을 관리합니다. |
+| **📅 스마트 스케줄링** | 사용자가 설정한 시간에 맞춰 집진기가 자동으로 동작하거나 정지하도록 자동화 루틴을 제공합니다. |
+| **🔔 지능형 알림 시스템** | 앱이 종료된 상태에서도 기기의 상태 변화나 이상 징후를 즉시 파악할 수 있는 **백엔드 기반 알림**을 전송합니다. |
+| **📊 데이터 모니터링** | 현장 기기의 데이터를 수집하여 시스템 최적화와 안정적인 기기 운영을 지원합니다. |
+
+<br>
+
+---
+
+<br>
+
+## 🛠 기술 스택
+산업 현장의 안정성과 실시간성을 확보하기 위해 검증된 기술들을 활용했습니다.
+
+* **Frontend:** **Flutter** (Cross-platform Mobile App)
+* **Communication:** **Modbus**, **MQTT** (Industrial IoT Protocols)
+* **Cloud & Infra:** **Google Cloud Platform (GCP)**
+* **Backend:** Node.js / Express.js (Real-time Data Pipeline)
+* **Database:** MongoDB
+
+<br>
+
+---
+
+<br>
+
+## 📂 시스템 아키텍처
+1. **Field Device:** 산업용 집진기 및 센서 노드.
+2. **Connectivity:** Modbus 및 MQTT를 통한 게이트웨이 통신.
+3. **Cloud Server:** GCP/AWS 환경에서 구동되는 데이터 처리 백엔드.
+4. **App Client:** Flutter로 제작된 관리자용 모바일 대시보드.
+
+<br>
+
+---
+
+<br>
+
+## 💡 개발 배경 (Project Background)
+
+> **"현장의 소리를 데이터로, 수동 관리를 자동 제어로"**
+
+산업 현장의 집진기는 설비의 수명과 작업자의 건강에 직결되는 중요한 장비입니다. 하지만 기존의 수동 관리 방식은 실시간 대응이 어렵고 관리에 많은 인력이 소모되는 문제가 있었습니다.
+
+* **실시간 제어의 필요성:** 기기의 상태를 즉각 확인하고 멀리서도 제어할 수 있는 접근성이 필요했습니다.
+* **시스템 최적화:** 기기 가동 시간을 스케줄링하여 불필요한 에너지 낭비를 줄이고 시스템 운영을 최적화하고자 했습니다.
+* **데이터 기반 관리:** 수집된 데이터를 통해 장애를 예방하고, 산업 현장의 디지털 전환(Digital Transformation)을 실현하기 위해 본 프로젝트가 추진되었습니다.
+
+<br>
+
+---
+
+<br>
+
+<div align="center">
+<b>듀크린(Duclean) 산학 연계 프로젝트</b><br>
+인천대학교 컴퓨터공학부<br>
+© 2025 Duclean Project. Crafted with Passion.
+</div>
