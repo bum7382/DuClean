@@ -14,6 +14,8 @@ import 'package:duclean/models/device_info.dart'; // DeviceKey, DeviceInfo 모�
 import 'package:duclean/common/context_extensions.dart';
 import 'package:duclean/services/motor_schedule_service.dart';
 import 'package:duclean/services/wifi_finder_service.dart'; // 와이파이 스캔 서비스
+import 'package:plugin_wifi_connect/plugin_wifi_connect.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 const String _kDevicesStoreKey = 'modbus_devices_v1';
 
@@ -427,6 +429,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
   late final TextEditingController _serial;
 
   bool _isScanning = false;
+  bool _isConnecting = false;
 
   @override
   void initState() {
@@ -496,6 +499,48 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
     _mac.dispose();
     _serial.dispose();
     super.dispose();
+  }
+
+  // 기기 AP에 연결 후 앱 내장 WebView로 8.8.8.8 띄우기
+  // plugin_wifi_connect는 connect 성공 시 자동으로 bindProcessToNetwork 호출 →
+  // 별도 forceWifiUsage 불필요, 이 프로세스 소켓이 즉시 DUCLEAN AP로 고정됨
+  Future<void> _openDeviceSetup() async {
+    if (!Platform.isAndroid) return;
+
+    final ssid = _mac.text.trim();
+    if (ssid.isEmpty || !ssid.startsWith('DUCLEAN_')) {
+      _showWarning('먼저 IoT 기기를 스캔해주세요.');
+      return;
+    }
+
+    setState(() => _isConnecting = true);
+
+    try {
+      final ok = await PluginWifiConnect.connect(ssid);
+
+      if (!mounted) return;
+
+      if (ok != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$ssid 연결에 실패했습니다.')),
+        );
+        return;
+      }
+
+      // connect Future가 완료된 시점 = bindProcessToNetwork 완료. 바로 진입.
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _DeviceSetupWebViewPage(ssid: ssid),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('오류: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isConnecting = false);
+    }
   }
 
   // 와이파이 스캔 로직
@@ -661,14 +706,36 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(isEdit ? '장비 수정' : '장비 추가', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                // 스캔 버튼
+                // 스캔 / 기기 설정 버튼
                 if (isAndroid)
-                  TextButton.icon(
-                    onPressed: _isScanning ? null : _scanDevice,
-                    icon: _isScanning
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.wifi_find, color: AppColor.duBlue),
-                    label: Text(_isScanning ? '스캔 중...' : 'IoT 기기 스캔', style: const TextStyle(color: AppColor.duBlue)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton.icon(
+                        onPressed: (_isScanning || _isConnecting) ? null : _scanDevice,
+                        icon: _isScanning
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.wifi_find, color: AppColor.duBlue, size: 20),
+                        label: Text(_isScanning ? '스캔 중...' : '스캔', style: const TextStyle(color: AppColor.duBlue, fontSize: 13)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: (_isScanning || _isConnecting) ? null : _openDeviceSetup,
+                        icon: _isConnecting
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.settings_remote, color: AppColor.duBlue, size: 20),
+                        label: Text(_isConnecting ? '연결 중...' : '기기 설정', style: const TextStyle(color: AppColor.duBlue, fontSize: 13)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ],
                   )
                 else
                 // iOS일 때 보여줄 문구
@@ -762,6 +829,79 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
             const SizedBox(height: 6),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 기기 AP 접속 후 설정 페이지(8.8.8.8)를 앱 내장 WebView로 띄움
+// forceWifiUsage로 프로세스 트래픽을 DUCLEAN AP로 강제 → 모바일 데이터 켜져 있어도 OK
+// ---------------------------------------------------------------------------
+
+class _DeviceSetupWebViewPage extends StatefulWidget {
+  const _DeviceSetupWebViewPage({required this.ssid});
+  final String ssid;
+
+  @override
+  State<_DeviceSetupWebViewPage> createState() => _DeviceSetupWebViewPageState();
+}
+
+class _DeviceSetupWebViewPageState extends State<_DeviceSetupWebViewPage> {
+  late final WebViewController _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageStarted: (_) {
+          if (mounted) setState(() => _loading = true);
+        },
+        onPageFinished: (_) {
+          if (mounted) setState(() => _loading = false);
+        },
+      ));
+
+    // 이 시점에 이미 plugin_wifi_connect가 프로세스를 DUCLEAN AP에 바인딩한 상태
+    _controller.loadRequest(Uri.parse('http://8.8.8.8'));
+  }
+
+  @override
+  void dispose() {
+    // 네트워크 바인딩 해제 + AP 연결 종료 (원래 Wi-Fi/데이터로 복귀)
+    PluginWifiConnect.disconnect();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: AppColor.duBlue,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          widget.ssid,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
+        actions: [
+          IconButton(
+            tooltip: '새로고침',
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: () => _controller.reload(),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_loading)
+            const Center(child: CircularProgressIndicator(color: AppColor.duBlue)),
+        ],
       ),
     );
   }

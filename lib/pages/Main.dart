@@ -59,6 +59,11 @@ class _MainPageState extends State<MainPage> {
   bool _pollingBusy = false;
   static const Duration _pollInterval = Duration(milliseconds: 1000);
 
+  // 홀딩 레지스터 주기 갱신 (외부(판넬/다른 기기)에서 값 변경 시 반영)
+  Timer? _holdingPoller;
+  bool _holdingBusy = false;
+  static const Duration _holdingPollInterval = Duration(seconds: 3);
+
   // 전체(모든 기기) 미해제 알람 배지
   int _globalAlarmOpenCount = 0;
   Timer? _alarmBadgeTimer;
@@ -108,6 +113,7 @@ class _MainPageState extends State<MainPage> {
   // Holding Register(4x)
   final runModeList = ['판넬', '연동', '원격', '통신(RS485)']; // 동작 설정
   var runMode = "";
+
 
   var fanFreq = 0; // #60 송풍기 가동 주파수
   var pulseDiff = 0; // #27 펄스 작동 차압
@@ -168,6 +174,7 @@ class _MainPageState extends State<MainPage> {
       await _startPolling();
       await _readOnEnter();
       // 그 다음 폴링 시작
+      _startHoldingPolling();
     });
 
     ModbusManager.instance.startAlarmWatch(
@@ -185,6 +192,8 @@ class _MainPageState extends State<MainPage> {
   void dispose() {
     _poller?.cancel();
     _poller = null;
+    _holdingPoller?.cancel();
+    _holdingPoller = null;
     _alarmBadgeTimer?.cancel();
     _alarmBadgeTimer = null;
     // 연결 해제
@@ -252,6 +261,75 @@ class _MainPageState extends State<MainPage> {
       powerDiff = pDiff;
       freqSelectMode = fMode;
       pulseAutoMode = pAuto;
+    });
+  }
+
+  // 외부에서 홀딩 값이 바뀌어도 반영되도록 주기적으로 재읽기 (경량 버전: 로딩/팝 처리 없음)
+  Future<void> _refreshHoldings() async {
+    if (!mounted) return;
+    if (_holdingBusy) return;
+    _holdingBusy = true;
+    try {
+      final list = await ModbusManager.instance.readHoldingRange(
+        context,
+        host: _host,
+        unitId: _unitId,
+        startAddress: 26,
+        count: 45,
+        name: _deviceName,
+      );
+
+      if (!mounted) return;
+      if (list == null || list.isEmpty) return; // 실패 시 조용히 스킵
+
+      int _get(int addr, {int defaultValue = 0}) {
+        final idx = addr - 26;
+        if (idx < 0 || idx >= list.length) return defaultValue;
+        return list[idx];
+      }
+
+      final diff = _get(27);
+      final sol = _get(33);
+      final mode = _get(34);
+      final freq = _get(60);
+      final dHLimit = _get(29);
+      final dHAlarmD = _get(65);
+      final dLLimit = _get(67);
+      final dLAlarmD = _get(68);
+      final pLimit = _get(32);
+      final pDiff = _get(44);
+      final fMode = _get(50);
+      final pAuto = _get(54);
+
+      if (!mounted) return;
+      setState(() {
+        runMode = (mode >= 0 && mode < runModeList.length)
+            ? runModeList[mode]
+            : runMode;
+        fanFreq = freq;
+        pulseDiff = diff;
+        solCount = sol;
+        dpHighLimit = dHLimit;
+        dpHighAlarmDelay = dHAlarmD;
+        dpLowLimit = dLLimit;
+        dpLowAlarmDelay = dLAlarmD;
+        powerLimit = pLimit;
+        powerDiff = pDiff;
+        freqSelectMode = fMode;
+        pulseAutoMode = pAuto;
+      });
+    } catch (e) {
+      debugPrint('홀딩 재읽기 실패: $e');
+    } finally {
+      _holdingBusy = false;
+    }
+  }
+
+  void _startHoldingPolling() {
+    _holdingPoller?.cancel();
+    _holdingPoller = Timer.periodic(_holdingPollInterval, (_) async {
+      if (!mounted) return;
+      await _refreshHoldings();
     });
   }
 

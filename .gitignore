@@ -1,46 +1,98 @@
-# Flutter build
-build/
+# =========================
+# Flutter / Dart
+# =========================
+.dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
-.packages
-pubspec.lock
-.dart_tool/
+.pub-cache/
+.pub/
+build/
+/build/
+**/doc/api/
 
-# VSCode 설정
-.vscode/
+# Symbolication / obfuscation
+app.*.symbols
+app.*.map.json
 
-# Android 관련 빌드 파일
-android/.gradle/
-android/app/build/
-*.iml
+# =========================
+# IDE / Editor
+# =========================
 .idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+.history/
+.atom/
 
-# iOS 관련 빌드 파일
+# =========================
+# Android
+# =========================
+android/.gradle/
+android/.kotlin/
+android/captures/
+android/app/build/
+android/app/release/
+android/local.properties
+android/key.properties
+android/**/GeneratedPluginRegistrant.java
+*.jks
+*.keystore
+
+# =========================
+# iOS / macOS
+# =========================
 ios/Pods/
-ios/Runner.xcworkspace/
+ios/.symbols/
+ios/Flutter/.last_build_id
+ios/Flutter/App.framework
 ios/Flutter/Flutter.framework
 ios/Flutter/Flutter.podspec
 ios/Flutter/Generated.xcconfig
-ios/Flutter/App.framework
-ios/Flutter/GeneratedPluginRegistrant.*
 ios/Flutter/ephemeral/
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Flutter/flutter_assets/
+ios/Runner/GeneratedPluginRegistrant.*
+ios/ServiceDefinitions.json
 
-# Xcode 자동 생성 파일
+# Xcode
 *.xcuserstate
-*.xcworkspace
-*.xcodeproj/project.xcworkspace/
+*.xcuserdatad/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
+DerivedData/
 
-# Firebase 관련 비밀 파일
-*.keystore
-*.jks
-
-# Mac OS 불필요 파일
+# =========================
+# OS
+# =========================
 .DS_Store
+Thumbs.db
+desktop.ini
 
-# 기타 IDE 불필요 파일
+# =========================
+# Logs / Temp
+# =========================
 *.log
 *.tmp
 
-# 환경변수 파일 (직접 작성했을 경우)
+# =========================
+# Secrets / Env
+# =========================
 .env
+.env.*
+!.env.example
+
+# =========================
+# Claude / AI tooling
+# =========================
+.claude/
+
+# =========================
+# Project-specific
+# =========================
+# 릴리즈 배포 zip (예: "duclean v1.1.2.zip")
+*.zip
