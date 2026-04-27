@@ -109,13 +109,12 @@ class _AlarmPageState extends State<AlarmPage> {
     _isSyncing = true;
     try {
       final Map<String, String> queryParams = {
-        'start': _startDate.toIso8601String(),
-        'end': _endDate.toIso8601String(),
+        'limit': '500',
       };
       if (_targetHost != null) queryParams['ip'] = _targetHost!;
       if (_targetMac != null) queryParams['mac'] = _targetMac!;
 
-      final uri = Uri.parse('$_backendBaseUrl/api/logs/filter').replace(queryParameters: queryParams);
+      final uri = Uri.parse('$_backendBaseUrl/api/logs').replace(queryParameters: queryParams);
       final response = await http.get(uri).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
