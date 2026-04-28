@@ -24,18 +24,22 @@ Future<void> main() async{
   // 모터 스케줄 서비스 초기화 (저장된 스케줄 복구 + 타이머 재설정)
   MotorScheduleService().init(appNavigatorKey);
   await dotenv.load(fileName: ".env");
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => SelectedDevice()),
-        ChangeNotifierProvider(create: (_) => ConnectionRegistry()),
-        ChangeNotifierProvider(create: (_) => DpHistory()),
-        ChangeNotifierProvider(create: (_) => PowerHistory()),
-      ],
-      child: const MyApp(),
-    ),
-  );
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]).then((_) {
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthService()),
+          ChangeNotifierProvider(create: (_) => SelectedDevice()),
+          ChangeNotifierProvider(create: (_) => ConnectionRegistry()),
+          ChangeNotifierProvider(create: (_) => DpHistory()),
+          ChangeNotifierProvider(create: (_) => PowerHistory()),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  });
 }
 
 // 앱
