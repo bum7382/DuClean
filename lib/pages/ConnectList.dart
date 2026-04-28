@@ -256,7 +256,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
       backgroundColor: AppColor.bg,
       appBar: AppBar(
         centerTitle: false,
-        title: const Text('기기 목록', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
+        title: Text('기기 목록', style: TextStyle(color: Colors.white, fontSize: context.fs(20), fontWeight: FontWeight.w500)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
@@ -343,7 +343,7 @@ class _DeviceTile extends StatelessWidget {
     );
 
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+      contentPadding: EdgeInsets.symmetric(horizontal: context.s(10), vertical: 0),
       leading: Stack(
         children: [
           Image.asset(
@@ -354,7 +354,7 @@ class _DeviceTile extends StatelessWidget {
             child: Text(
               number.toString(),
               style: TextStyle(
-                fontSize: 8,
+                fontSize: context.fs(8),
                 fontWeight: FontWeight.bold,
                 color: connected ? AppColor.duBlue : Colors.black,
               ),
@@ -362,12 +362,27 @@ class _DeviceTile extends StatelessWidget {
           ),
         ],
       ),
-      title: Text(d.name, style: const TextStyle(fontWeight: FontWeight.w400, fontSize: 10)),
+      title: Text(
+        d.name,
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+        style: TextStyle(fontWeight: FontWeight.w400, fontSize: context.fs(10)),
+      ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('IP: ${d.host}', style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 9)),
-          Text('Unit ID: ${d.unitId}', style: const TextStyle(fontWeight: FontWeight.w200, fontSize: 9)),
+          Text(
+            'IP: ${d.host}',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: TextStyle(fontWeight: FontWeight.w200, fontSize: context.fs(9)),
+          ),
+          Text(
+            'Unit ID: ${d.unitId}',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: TextStyle(fontWeight: FontWeight.w200, fontSize: context.fs(9)),
+          ),
         ],
       ),
       trailing: Row(
@@ -584,7 +599,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('IoT 기기를 선택해주세요.', style: TextStyle(fontSize: 20),),
+          title: Text('IoT 기기를 선택해주세요.', style: TextStyle(fontSize: context.fs(20)),),
           content: SizedBox(
             width: double.maxFinite,
             child: ListView.builder(
@@ -593,7 +608,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
               itemBuilder: (context, index) {
                 final mac = macList[index];
                 return ListTile(
-                  title: Text("DUCLEAN_$mac", style: TextStyle(fontSize: 13),), // 전체 이름 보여주기
+                  title: Text("DUCLEAN_$mac", style: TextStyle(fontSize: context.fs(13)),), // 전체 이름 보여주기
                   leading: const Icon(Icons.wifi, color: AppColor.duBlue),
                   onTap: () {
                     // 선택 시 텍스트 채우고 닫기
@@ -697,15 +712,19 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
     return Padding(
       padding: EdgeInsets.only(bottom: insets.bottom),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.md, AppSpacing.md, AppSpacing.md, context.s(12),
+        ),
+        // 작은 폰/키보드 올라온 상태에서 폼이 화면 넘치면 스크롤되도록.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(isEdit ? '장비 수정' : '장비 추가', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                Text(isEdit ? '장비 수정' : '장비 추가', style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w700)),
                 // 스캔 / 기기 설정 버튼
                 if (isAndroid)
                   Row(
@@ -714,11 +733,11 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                       TextButton.icon(
                         onPressed: (_isScanning || _isConnecting) ? null : _scanDevice,
                         icon: _isScanning
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.wifi_find, color: AppColor.duBlue, size: 20),
-                        label: Text(_isScanning ? '스캔 중...' : '스캔', style: const TextStyle(color: AppColor.duBlue, fontSize: 13)),
+                            ? SizedBox(width: context.s(16), height: context.s(16), child: const CircularProgressIndicator(strokeWidth: 2))
+                            : Icon(Icons.wifi_find, color: AppColor.duBlue, size: context.s(20)),
+                        label: Text(_isScanning ? '스캔 중...' : '스캔', style: TextStyle(color: AppColor.duBlue, fontSize: context.fs(13))),
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
@@ -726,11 +745,11 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                       TextButton.icon(
                         onPressed: (_isScanning || _isConnecting) ? null : _openDeviceSetup,
                         icon: _isConnecting
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.settings_remote, color: AppColor.duBlue, size: 20),
-                        label: Text(_isConnecting ? '연결 중...' : '기기 설정', style: const TextStyle(color: AppColor.duBlue, fontSize: 13)),
+                            ? SizedBox(width: context.s(16), height: context.s(16), child: const CircularProgressIndicator(strokeWidth: 2))
+                            : Icon(Icons.settings_remote, color: AppColor.duBlue, size: context.s(20)),
+                        label: Text(_isConnecting ? '연결 중...' : '기기 설정', style: TextStyle(color: AppColor.duBlue, fontSize: context.fs(13))),
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
@@ -739,13 +758,13 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                   )
                 else
                 // iOS일 때 보여줄 문구
-                  const Text(
+                  Text(
                     "iOS는 직접 입력해주세요",
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: context.fs(12), color: Colors.grey),
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.s(12)),
             // MAC 주소 표시 (읽기 전용)
             TextField(
               controller: _mac,
@@ -762,7 +781,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                 labelStyle: TextStyle(color: AppColor.duBlack),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.s(12)),
             TextField(
               controller: _host,
               decoration: InputDecoration(
@@ -776,7 +795,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
               ),
               keyboardType: TextInputType.url,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.s(12)),
             TextField(
               controller: _unit,
               decoration: const InputDecoration(
@@ -789,7 +808,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
               ),
               keyboardType: TextInputType.number,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.s(12)),
             TextField(
               controller: _name,
               decoration: const InputDecoration(
@@ -801,7 +820,7 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                 labelStyle: TextStyle(color: AppColor.duBlack),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.s(12)),
             TextField(
               controller: _serial,
               decoration: const InputDecoration(
@@ -814,11 +833,11 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                 labelStyle: TextStyle(color: AppColor.duBlack),
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: context.s(14)),
             Row(
               children: [
                 Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('취소', style: TextStyle(color: AppColor.duBlue),))),
-                const SizedBox(width: 12),
+                SizedBox(width: context.s(12)),
                 Expanded(child: FilledButton(
                     onPressed: _submit,
                     style: FilledButton.styleFrom(backgroundColor: AppColor.duBlue),
@@ -826,8 +845,9 @@ class _DeviceEditSheetState extends State<_DeviceEditSheet> {
                 )),
               ],
             ),
-            const SizedBox(height: 6),
-          ],
+            SizedBox(height: context.s(6)),
+            ],
+          ),
         ),
       ),
     );
@@ -886,7 +906,7 @@ class _DeviceSetupWebViewPageState extends State<_DeviceSetupWebViewPage> {
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           widget.ssid,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: Colors.white, fontSize: context.fs(16)),
         ),
         actions: [
           IconButton(

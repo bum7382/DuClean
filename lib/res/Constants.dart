@@ -1,5 +1,74 @@
 // lib/res/Constants.dart
 import 'package:flutter/material.dart';
+import 'package:duclean/common/context_extensions.dart';
+
+/// 간격 토큰. 모든 padding/margin/SizedBox 값은 여기서 가져다 쓴다.
+/// 화면 폭에 비례한 값이 필요하면 [AppSpacing.r] 사용.
+class AppSpacing {
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 16;
+  static const double lg = 24;
+  static const double xl = 32;
+  static const double xxl = 48;
+  static const double xxxl = 64;
+
+  /// 반응형 간격. `AppSpacing.r(context, AppSpacing.md)` 형태.
+  static double r(BuildContext c, double base) => c.s(base);
+}
+
+/// 둥근 모서리 토큰.
+class AppRadius {
+  static const double sm = 8;
+  static const double md = 16;
+  static const double lg = 20;
+  static const double xl = 30;
+  static const double pill = 100;
+}
+
+/// 폰트 사이즈 토큰. 모두 "기준 폭(390) 기준의 px"이며,
+/// 실제 사용 시에는 [AppText] 헬퍼나 `context.fs(...)`로 감싸 적용한다.
+class AppFontSize {
+  static const double caption = 11;
+  static const double small = 13;
+  static const double body = 14;
+  static const double subtitle = 16;
+  static const double title = 20;
+  static const double headline = 24;
+  static const double display = 32;
+  static const double hero = 40;
+}
+
+/// 자주 쓰는 텍스트 스타일 프리셋. 폰트 크기는 화면에 맞춰 자동 스케일.
+/// 색/굵기는 호출부에서 `.copyWith(...)`로 덮어쓸 것.
+class AppText {
+  static TextStyle caption(BuildContext c) =>
+      TextStyle(fontSize: c.fs(AppFontSize.caption));
+  static TextStyle small(BuildContext c) =>
+      TextStyle(fontSize: c.fs(AppFontSize.small));
+  static TextStyle body(BuildContext c) =>
+      TextStyle(fontSize: c.fs(AppFontSize.body));
+  static TextStyle subtitle(BuildContext c) => TextStyle(
+        fontSize: c.fs(AppFontSize.subtitle),
+        fontWeight: FontWeight.w500,
+      );
+  static TextStyle title(BuildContext c) => TextStyle(
+        fontSize: c.fs(AppFontSize.title),
+        fontWeight: FontWeight.w600,
+      );
+  static TextStyle headline(BuildContext c) => TextStyle(
+        fontSize: c.fs(AppFontSize.headline),
+        fontWeight: FontWeight.w700,
+      );
+  static TextStyle display(BuildContext c) => TextStyle(
+        fontSize: c.fs(AppFontSize.display),
+        fontWeight: FontWeight.w700,
+      );
+  static TextStyle hero(BuildContext c) => TextStyle(
+        fontSize: c.fs(AppFontSize.hero),
+        fontWeight: FontWeight.w700,
+      );
+}
 
 class AppColor {
   // 일반 색
@@ -98,7 +167,7 @@ class AppColor {
 }
 
 class AppConst {
-  static const version = 'V 1.1.7';
+  static const version = 'V 1.1.8';
 }
 
 /// 기기 식별용 간단 모델 (ConnectList에서 사용)

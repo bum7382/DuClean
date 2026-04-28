@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:duclean/res/Constants.dart';
+import 'package:duclean/common/context_extensions.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 
@@ -29,8 +30,10 @@ async {
       return SafeArea(
         child: Padding(
           padding: EdgeInsets.only(
-            left: 10, right: 10, top: 5,
-            bottom: 5 + MediaQuery.of(ctx).viewInsets.bottom,
+            left: ctx.s(10),
+            right: ctx.s(10),
+            top: ctx.s(5),
+            bottom: ctx.s(5) + MediaQuery.of(ctx).viewInsets.bottom,
           ),
           child: StatefulBuilder(
             builder: (ctx, setLocal) {
@@ -55,14 +58,17 @@ async {
                   Row(
                     children: [
                       Icon(icon, color: ac),
-                      const SizedBox(width: 8),
+                      SizedBox(width: AppSpacing.sm),
                       Text(
                         title,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: ctx.fs(18),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: ctx.s(12)),
                   TextField(
                     controller: controller,
                     keyboardType: TextInputType.number,
@@ -77,7 +83,7 @@ async {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: ctx.s(12)),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
@@ -86,7 +92,7 @@ async {
                         onPressed: () => Navigator.pop(ctx),
                         child: const Text('취소'),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: AppSpacing.sm),
                       FilledButton(
                         style: FilledButton.styleFrom(backgroundColor: ac),
                         onPressed: onSave,
@@ -120,15 +126,21 @@ async {
     builder: (ctx) {
       return SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: ctx.s(12),
+            vertical: ctx.s(12),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Align(
                 alignment: Alignment.centerLeft,
-                child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                child: Text(
+                  title,
+                  style: AppText.subtitle(ctx).copyWith(fontWeight: FontWeight.w700),
+                ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: AppSpacing.sm),
               RadioGroup<T>(
                 groupValue: groupValue,
                 onChanged: (v) {
@@ -216,8 +228,10 @@ async {
       return SafeArea(
         child: Padding(
           padding: EdgeInsets.only(
-            left: 10, right: 10, top: 8,
-            bottom: 8 + MediaQuery.of(ctx).viewInsets.bottom,
+            left: ctx.s(10),
+            right: ctx.s(10),
+            top: AppSpacing.sm,
+            bottom: AppSpacing.sm + MediaQuery.of(ctx).viewInsets.bottom,
           ),
           child: StatefulBuilder(
             builder: (ctx, setLocal) {
@@ -230,7 +244,13 @@ async {
                     return StatefulBuilder(
                       builder: (dctx, setDialog) {
                         return AlertDialog(
-                          title: const Text('값 입력', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),),
+                          title: Text(
+                            '값 입력',
+                            style: TextStyle(
+                              fontSize: dctx.fs(18),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           content: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -296,18 +316,23 @@ async {
                   Row(
                     children: [
                       Icon(icon, color: accentColor),
-                      const SizedBox(width: 8),
-                      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      SizedBox(width: AppSpacing.sm),
+                      Text(
+                        title,
+                        style: AppText.subtitle(ctx).copyWith(fontWeight: FontWeight.w700),
+                      ),
                       const Spacer(),
-                      Text('$min ~ $max$unit',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        '$min ~ $max$unit',
+                        style: TextStyle(fontSize: ctx.fs(12), color: Colors.grey),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: ctx.s(12)),
 
                   // ▶ 게이지 + 중앙 오버레이 버튼
                   SizedBox(
-                    height: 240,
+                    height: ctx.s(240),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
@@ -318,11 +343,11 @@ async {
                               maximum: max.toDouble(),
                               showTicks: true,
                               showLabels: false,
-                              axisLineStyle: const AxisLineStyle(thickness: 12),
+                              axisLineStyle: AxisLineStyle(thickness: ctx.s(12)),
                               pointers: <GaugePointer>[
                                 RangePointer(
                                   value: current.toDouble(),
-                                  width: 12,
+                                  width: ctx.s(12),
                                   color: accentColor,
                                 ),
                                 MarkerPointer(
@@ -338,8 +363,8 @@ async {
                                     }
                                   },
                                   markerType: MarkerType.circle,
-                                  markerHeight: 22,
-                                  markerWidth: 22,
+                                  markerHeight: ctx.s(22),
+                                  markerWidth: ctx.s(22),
                                   color: accentColor,
                                 ),
                               ],
@@ -349,8 +374,8 @@ async {
 
                         // 중앙 값 표시 + 탭 입력 (InkWell 오버레이)
                         SizedBox(
-                          width: 140,
-                          height: 64,
+                          width: ctx.s(140),
+                          height: ctx.s(64),
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
@@ -359,11 +384,7 @@ async {
                               child: Center(
                                 child: Text(
                                   '$current$unit',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
-                                    color: accentColor,
-                                  ),
+                                  style: AppText.headline(ctx).copyWith(color: accentColor),
                                 ),
                               ),
                             ),
@@ -374,19 +395,22 @@ async {
                   ),
 
                   if (error != null) ...[
-                    const SizedBox(height: 6),
-                    Text(error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                    SizedBox(height: ctx.s(6)),
+                    Text(
+                      error!,
+                      style: TextStyle(color: Colors.red, fontSize: ctx.fs(12)),
+                    ),
                   ],
 
-                  const SizedBox(height: 8),
+                  SizedBox(height: AppSpacing.sm),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, null),
-                        child: Text('취소', style: TextStyle(color: AppColor.duBlue),),
+                        child: Text('취소', style: TextStyle(color: AppColor.duBlue)),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: AppSpacing.sm),
                       FilledButton(
                         onPressed: onSave,
                         style: FilledButton.styleFrom(backgroundColor: AppColor.duBlue),

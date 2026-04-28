@@ -649,13 +649,6 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 화면 크기
-    final w = context.screenWidth;
-    final h = context.screenHeight;
-
-    // 세로 모드 여부
-    final portrait = context.isPortrait;
-
     final alarmAt = context.select<ConnectionRegistry, DateTime?>(
       (r) => r.stateOf(_host, _unitId).alarmAt,
     );
@@ -678,7 +671,7 @@ class _MainPageState extends State<MainPage> {
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 7),
+            padding: EdgeInsets.only(right: context.s(7)),
             child: Row(
               children: [
                 // 알람
@@ -695,8 +688,8 @@ class _MainPageState extends State<MainPage> {
                     );
                   },
                   icon: SizedBox(
-                    width: 30,
-                    height: 30,
+                    width: context.s(30),
+                    height: context.s(30),
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
@@ -707,7 +700,7 @@ class _MainPageState extends State<MainPage> {
                             alarmCount > 0
                                 ? Icons.notifications_on_outlined
                                 : Icons.notifications_none,
-                            size: 30,
+                            size: context.s(30),
                             color: alarmCount > 0
                                 ? Colors.red
                                 : Colors.white,
@@ -719,11 +712,11 @@ class _MainPageState extends State<MainPage> {
                             right: -2,
                             top: -2,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.s(5),
                                 vertical: 1.5,
                               ),
-                              constraints: const BoxConstraints(minWidth: 18),
+                              constraints: BoxConstraints(minWidth: context.s(18)),
                               decoration: BoxDecoration(
                                 color: Colors.red,
                                 borderRadius: BorderRadius.circular(10),
@@ -735,9 +728,9 @@ class _MainPageState extends State<MainPage> {
                               child: Text(
                                 alarmCount.toString(),// 알람 개수 변수 수정- 25.12.11
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 10,
+                                  fontSize: context.fs(10),
                                   fontWeight: FontWeight.w900,
                                   height: 1.1,
                                 ),
@@ -772,7 +765,7 @@ class _MainPageState extends State<MainPage> {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.calendar_month, color: Colors.white, size: 30),
+                  icon: Icon(Icons.calendar_month, color: Colors.white, size: context.s(30)),
                 ),
               ],
             ),
@@ -787,16 +780,13 @@ class _MainPageState extends State<MainPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset('assets/images/logo_white.png', width: 95),
-                    const SizedBox(width: 5),
+                    Image.asset('assets/images/logo_white.png', width: context.s(95)),
+                    SizedBox(width: AppSpacing.xs),
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
                         AppConst.version,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                        ),
+                        style: AppText.caption(context).copyWith(color: Colors.white),
                       ),
                     ),
                   ],
@@ -959,25 +949,37 @@ class _HomeTab extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               //기기이름 표시하기
-              Text(
-                deviceName,
-                style: TextStyle(
-                  fontSize: w * 0.05,
-                  fontWeight: FontWeight.w500,
-                  color: motorStatus
-                      ? AppColor.duBlue
-                      : Colors.black,
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                child: Text(
+                  deviceName,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: context.fs(20),
+                    fontWeight: FontWeight.w500,
+                    color: motorStatus
+                        ? AppColor.duBlue
+                        : Colors.black,
+                  ),
                 ),
               ),
               //IP 주소 다음 줄에 표시
-              Text(
-                "IP: $hostIP [ID: $stationID]",
-                style: TextStyle(
-                  fontSize: w * 0.03,
-                  fontWeight: FontWeight.w300,
-                  color: motorStatus
-                      ? AppColor.duBlue
-                      : Colors.black,
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                child: Text(
+                  "IP: $hostIP [ID: $stationID]",
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w300,
+                    color: motorStatus
+                        ? AppColor.duBlue
+                        : Colors.black,
+                  ),
                 ),
               ),
               // 기존 디자인 UI
@@ -1021,43 +1023,57 @@ class _HomeTab extends StatelessWidget {
                               // 펌웨어 버전
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                Text(
-                                  "F.W : $fwVer V",
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w300,
-                                    color: motorStatus
-                                        ? Colors.greenAccent
-                                        : Colors.black,
+                                Flexible(
+                                  child: Text(
+                                    "F.W : $fwVer V",
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      fontSize: context.fs(10),
+                                      fontWeight: FontWeight.w300,
+                                      color: motorStatus
+                                          ? Colors.greenAccent
+                                          : Colors.black,
+                                    ),
                                   ),
-                                ),],
+                                ),
+                              ],
                              ),
                             ),
 
                           SizedBox(
                             width: w * 0.8,
                             child: Row(
-                              // 운전시간 및 판넬 모드
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              // 운전시간 및 판넬 모드 (좌우 정렬, 길어지면 ellipsis)
                               children: [
-                                Text(
-                                  "운전 시간: $operationTime H",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w300,
-                                    color: motorStatus
-                                        ? Colors.white
-                                        : Colors.black,
+                                Expanded(
+                                  child: Text(
+                                    "운전 시간: $operationTime H",
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      fontSize: context.fs(12),
+                                      fontWeight: FontWeight.w300,
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
                                   ),
                                 ),
-                                Text(
-                                  "모드: $runMode",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w300,
-                                    color: motorStatus
-                                        ? Colors.white
-                                        : Colors.black,
+                                SizedBox(width: AppSpacing.sm),
+                                Expanded(
+                                  child: Text(
+                                    "모드: $runMode",
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    textAlign: TextAlign.end,
+                                    style: TextStyle(
+                                      fontSize: context.fs(12),
+                                      fontWeight: FontWeight.w300,
+                                      color: motorStatus
+                                          ? Colors.white
+                                          : Colors.black,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1114,53 +1130,61 @@ class _HomeTab extends StatelessWidget {
                                         children: [
                                           Icon(
                                             Icons.circle,
-                                            size: 12,
+                                            size: context.s(12),
                                             color: pulseColor,
                                           ),
                                           SizedBox(width: 2),
-                                          Text(
-                                            pulseStatus,
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w100,
-                                              color: motorStatus
-                                                  ? Colors.white
-                                                  : Colors.black,
+                                          Flexible(
+                                            child: Text(
+                                              pulseStatus,
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                              style: TextStyle(
+                                                fontSize: context.fs(11),
+                                                fontWeight: FontWeight.w100,
+                                                color: motorStatus
+                                                    ? Colors.white
+                                                    : Colors.black,
+                                              ),
                                             ),
                                           ),
                                           SizedBox(width: 2),
                                         ],
                                       ),
-                                      Row(
-                                        spacing: 0.001,
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                        CrossAxisAlignment.baseline,
-                                        textBaseline: TextBaseline.alphabetic,
-                                        children: [
-                                          const SizedBox(width: 1),
-                                          Text(
-                                            "$diffPressure",
-                                            style: TextStyle(
-                                              fontFamily: "Digital",
-                                              fontSize: 55,
-                                              color: motorStatus
-                                                  ? Colors.white
-                                                  : AppColor.duBlue,
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.center,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                          CrossAxisAlignment.baseline,
+                                          textBaseline: TextBaseline.alphabetic,
+                                          children: [
+                                            const SizedBox(width: 1),
+                                            Text(
+                                              "$diffPressure",
+                                              style: TextStyle(
+                                                fontFamily: "Digital",
+                                                fontSize: context.fs(55),
+                                                color: motorStatus
+                                                    ? Colors.white
+                                                    : AppColor.duBlue,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            "mmAq",
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w400,
-                                              color: motorStatus
-                                                  ? Colors.white
-                                                  : AppColor.duBlue,
+                                            Text(
+                                              "mmAq",
+                                              style: TextStyle(
+                                                fontSize: context.fs(13),
+                                                fontWeight: FontWeight.w400,
+                                                color: motorStatus
+                                                    ? Colors.white
+                                                    : AppColor.duBlue,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -1208,63 +1232,73 @@ class _HomeTab extends StatelessWidget {
                                     mainAxisAlignment:
                                     MainAxisAlignment.spaceAround,
                                     children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                        CrossAxisAlignment.end,
-                                        textBaseline: TextBaseline.alphabetic,
-                                        children: [
-                                          Text(
-                                            "$power1",
-                                            style: TextStyle(
-                                              fontFamily: "Digital",
-                                              fontSize: 32,
-                                              color: motorStatus
-                                                  ? Colors.white
-                                                  : AppColor.duBlue,
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.center,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                          textBaseline: TextBaseline.alphabetic,
+                                          children: [
+                                            Text(
+                                              "$power1",
+                                              style: TextStyle(
+                                                fontFamily: "Digital",
+                                                fontSize: context.fs(32),
+                                                color: motorStatus
+                                                    ? Colors.white
+                                                    : AppColor.duBlue,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            "A",
-                                            style: TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w600,
-                                              color: motorStatus
-                                                  ? Colors.white
-                                                  : AppColor.duBlue,
+                                            Text(
+                                              "A",
+                                              style: TextStyle(
+                                                fontSize: context.fs(20),
+                                                fontWeight: FontWeight.w600,
+                                                color: motorStatus
+                                                    ? Colors.white
+                                                    : AppColor.duBlue,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                      Row(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                        CrossAxisAlignment.end,
-                                        textBaseline: TextBaseline.alphabetic,
-                                        children: [
-                                          Text(
-                                            "$power2",
-                                            style: TextStyle(
-                                              fontFamily: "Digital",
-                                              fontSize: 32,
-                                              color: motorStatus
-                                                  ? Colors.white
-                                                  : AppColor.duBlue,
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.center,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                          textBaseline: TextBaseline.alphabetic,
+                                          children: [
+                                            Text(
+                                              "$power2",
+                                              style: TextStyle(
+                                                fontFamily: "Digital",
+                                                fontSize: context.fs(32),
+                                                color: motorStatus
+                                                    ? Colors.white
+                                                    : AppColor.duBlue,
+                                              ),
                                             ),
-                                          ),
-                                          Text(
-                                            "A",
-                                            style: TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w600,
-                                              color: motorStatus
-                                                  ? Colors.white
-                                                  : AppColor.duBlue,
+                                            Text(
+                                              "A",
+                                              style: TextStyle(
+                                                fontSize: context.fs(20),
+                                                fontWeight: FontWeight.w600,
+                                                color: motorStatus
+                                                    ? Colors.white
+                                                    : AppColor.duBlue,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -1296,7 +1330,7 @@ class _HomeTab extends StatelessWidget {
                                   Text(
                                     "운전 주파수",
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: context.fs(12),
                                       color: motorStatus
                                           ? Colors.white
                                           : AppColor.duBlue,
@@ -1306,7 +1340,7 @@ class _HomeTab extends StatelessWidget {
                                   Text(
                                     freqSelectMode == 0 ? "50/60Hz" : " $fanFreq Hz",//(기본주파수)
                                     style: TextStyle(
-                                      fontSize: freqSelectMode == 0 ? 10 : 12, // 글자가 길어질 수 있으므로 크기 조절
+                                      fontSize: context.fs(freqSelectMode == 0 ? 10 : 12), // 글자가 길어질 수 있으므로 크기 조절
                                       color: motorStatus ? Colors.white : AppColor.duBlue,
                                     ),
                                   ),
@@ -1346,17 +1380,17 @@ class _HomeTab extends StatelessWidget {
                                     child: Text(
                                       activeSolValveNo == 0 ? "정지" : "SOL $activeSolValveNo",
                                       style: TextStyle(
-                                        fontSize: 10,
+                                        fontSize: context.fs(10),
                                         color: motorStatus ? AppColor.duBlack : Colors.white,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ),
-                                  SizedBox(height: 4),
+                                  SizedBox(height: AppSpacing.xs),
                                   Text(
                                     "펄싱 차압",
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: context.fs(12),
                                       color: motorStatus
                                           ? Colors.white
                                           : AppColor.duBlue,
@@ -1367,7 +1401,7 @@ class _HomeTab extends StatelessWidget {
                                   Text(
                                     "$pulseDiff mmAq",
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: context.fs(10),
                                       color: motorStatus
                                           ? Colors.white
                                           : AppColor.duBlue,
@@ -1397,39 +1431,37 @@ class _HomeTab extends StatelessWidget {
                                           : AppColor.duBlue,
                                       shadowColor: Colors.black,
                                       elevation: 2,
-                                      textStyle: const TextStyle(
+                                      textStyle: TextStyle(
                                         fontWeight: FontWeight.w400,
-                                        fontSize: 16,
+                                        fontSize: context.fs(16),
                                       ),
                                     ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              motorStatus
-                                                  ? Icons.stop
-                                                  : Icons.play_arrow,
-                                              size: 24,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            motorStatus
+                                                ? Icons.stop
+                                                : Icons.play_arrow,
+                                            size: context.s(24),
+                                            color: motorStatus
+                                                ? Colors.black
+                                                : Colors.white,
+                                          ),
+                                          SizedBox(width: AppSpacing.xs),
+                                          Text(
+                                            motorStatus ? '운전 정지' : '운전 시작',
+                                            style: TextStyle(
+                                              fontSize: context.fs(16),
                                               color: motorStatus
                                                   ? Colors.black
                                                   : Colors.white,
                                             ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              motorStatus ? '운전 정지' : '운전 시작',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                color: motorStatus
-                                                    ? Colors.black
-                                                    : Colors.white,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1447,7 +1479,7 @@ class _HomeTab extends StatelessWidget {
                                     onPressed: onToggleBuzzer,
                                     icon: Icon(
                                       Icons.notifications_off_outlined,
-                                      size: 20,
+                                      size: context.s(20),
                                       color: motorStatus
                                           ? Colors.black
                                           : Colors.white,
@@ -1523,7 +1555,7 @@ class _HomeTab extends StatelessWidget {
                         Text(
                           "필터 사용 시간",
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: context.fs(11),
                             fontWeight: FontWeight.w300,
                           ),
                         ),
@@ -1534,14 +1566,14 @@ class _HomeTab extends StatelessWidget {
                             Text(
                               "$filterTime",
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: context.fs(15),
                                 fontWeight: FontWeight.w300,
                               ),
                             ),
                             Text(
                               " 시간",
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: context.fs(11),
                                 fontWeight: FontWeight.w300,
                               ),
                             ),
@@ -1557,7 +1589,7 @@ class _HomeTab extends StatelessWidget {
                         Text(
                           "필터 교체 횟수",
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: context.fs(11),
                             fontWeight: FontWeight.w300,
                           ),
                         ),
@@ -1568,14 +1600,14 @@ class _HomeTab extends StatelessWidget {
                             Text(
                               "$filterCount",
                               style: TextStyle(
-                                fontSize: 15,
+                                fontSize: context.fs(15),
                                 fontWeight: FontWeight.w300,
                               ),
                             ),
                             Text(
                               " 회",
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: context.fs(11),
                                 fontWeight: FontWeight.w300,
                               ),
                             ),
@@ -1606,10 +1638,10 @@ class _LoadingCover extends StatelessWidget {
         alignment: Alignment.center,
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            CircularProgressIndicator(color: AppColor.duBlue),
-            SizedBox(height: 12),
-            Text('연결 상태 확인 중...', style: TextStyle(fontSize: 14)),
+          children: [
+            const CircularProgressIndicator(color: AppColor.duBlue),
+            SizedBox(height: context.s(12)),
+            Text('연결 상태 확인 중...', style: AppText.body(context)),
           ],
         ),
       ),

@@ -74,7 +74,7 @@ class BlueContainer extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius ?? 20),
+        borderRadius: BorderRadius.circular(radius ?? AppRadius.lg),
         gradient: (linear ?? false) ? AppColor.duBlueGraLine : AppColor.duBlueGra,
         boxShadow: AppColor.duBlueSha,
       ),
@@ -109,7 +109,7 @@ class GreenContainer extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius ?? 20),
+        borderRadius: BorderRadius.circular(radius ?? AppRadius.lg),
         gradient: (linear ?? false) ? AppColor.duGreenGraLine : AppColor.duGreenGra,
         boxShadow: AppColor.duGreenSha,
       ),
@@ -141,7 +141,7 @@ class TransContainer extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: Color(0x4DFFFFFF),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
           width: 0.5,
           color: Colors.white,
@@ -179,7 +179,7 @@ class BgContainer extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: color ?? Colors.white,
-        borderRadius: BorderRadius.circular(radius ?? 30),
+        borderRadius: BorderRadius.circular(radius ?? AppRadius.xl),
         boxShadow: AppColor.duGreySha,
         border: Border.all(
           color: Color(0x80E0E2E6),

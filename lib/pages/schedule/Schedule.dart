@@ -245,11 +245,11 @@ class _SchedulePageState extends State<SchedulePage> {
       appBar: AppBar(
         backgroundColor: AppColor.duBlue,
         centerTitle: false,
-        title: const Text(
+        title: Text(
           '일정',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 20,
+            fontSize: context.fs(20),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -318,17 +318,21 @@ class _SchedulePageState extends State<SchedulePage> {
                   ),
                   title: Text(
                     _formatKoreanTime(e.time),
-                    style: const TextStyle(
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
                       color: Colors.black,
-                      fontSize: 18,
+                      fontSize: context.fs(18),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   subtitle: Text(
                     _weekdayLabel(e.weekdays),
-                    style: const TextStyle(
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
                       color: AppColor.duLightGrey,
-                      fontSize: 13,
+                      fontSize: context.fs(13),
                     ),
                   ),
                   trailing: Switch(

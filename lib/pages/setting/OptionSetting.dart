@@ -258,9 +258,12 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: AppColor.duRed,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
                     ),
                   ),
                   child: const Text('초기화'),

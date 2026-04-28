@@ -115,9 +115,9 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
         centerTitle: false,
         title: Text(
           widget.initial == null ? '일정 추가' : '일정 수정',
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
-            fontSize: 20,
+            fontSize: context.fs(20),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -136,15 +136,17 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
               BgContainer(
                 radius: 12,
                 child: Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: context.s(12),
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         '동작',
                         style: TextStyle(
-                            color: Colors.black, fontSize: w * 0.04),
+                            color: Colors.black, fontSize: context.fs(16)),
                       ),
                       SegmentedButton<bool>(
                         segments: const [
@@ -224,8 +226,10 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
               BgContainer(
                 radius: 12,
                 child: Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: context.s(12),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -233,7 +237,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                         '반복 요일',
                         style: TextStyle(
                           color: Colors.black,
-                          fontSize: w * 0.04,
+                          fontSize: context.fs(16),
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -305,7 +309,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                         _weekdayLabel(_weekdays),
                         style: TextStyle(
                           color: AppColor.duLightGrey,
-                          fontSize: w * 0.035,
+                          fontSize: context.fs(13),
                         ),
                       ),
                     ],
@@ -320,7 +324,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                   Text(
                     '일정 사용',
                     style: TextStyle(
-                        color: Colors.black, fontSize: w * 0.04),
+                        color: Colors.black, fontSize: context.fs(16)),
                   ),
                   Switch(
                     value: _enabled,
@@ -336,7 +340,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
               Padding(
                 padding: EdgeInsets.only(top: h * 0.05),
                 child: SizedBox(
-                  height: 48,
+                  height: context.s(48),
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColor.duBlue,
@@ -345,7 +349,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage> {
                     onPressed: _save,
                     child: Text(
                       '예약 저장',
-                      style: TextStyle(fontSize: w * 0.04),
+                      style: TextStyle(fontSize: context.fs(16)),
                     ),
                   ),
                 ),

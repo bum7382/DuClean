@@ -148,7 +148,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
                     context: context,
                     title: '필터 교체 재알람 시간 설정',
                     icon: Icons.alarm,
-                    address: 37,
+                    address: 69,
                     initialValue: filterReplaceRepeatTime!,
                     writeRegister: widget.writeRegister,
                     min: 0,

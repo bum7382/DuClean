@@ -102,9 +102,13 @@ class _DpDetailPageState extends State<DpDetailPage> {
       return Scaffold(
         backgroundColor: AppColor.bg,
         appBar: AppBar(
-          title: const Text(
+          title: Text(
             '차압 트렌드(설정)',
-            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: context.fs(15),
+              fontWeight: FontWeight.w500,
+            ),
           ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -126,9 +130,13 @@ class _DpDetailPageState extends State<DpDetailPage> {
     return Scaffold(
       backgroundColor: AppColor.bg,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           '차압 트렌드(설정)',
-          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: context.fs(15),
+            fontWeight: FontWeight.w500,
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -137,7 +145,7 @@ class _DpDetailPageState extends State<DpDetailPage> {
         backgroundColor: AppColor.duBlue,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(15),
+        padding: EdgeInsets.all(context.s(15)),
         child: history.isEmpty
             ? const Center(child: Text('수집된 차압 데이터가 없습니다.'))
             : SettingsList(
@@ -153,14 +161,16 @@ class _DpDetailPageState extends State<DpDetailPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       //현재 차압 텍스트 표시 25.12.11
-                     Text(
-                        "현재 차압 : ${dpHistory.latestDpFor(host, unitId).toInt()}mmAq",
-                        style: TextStyle(
-                          fontSize: w * 0.03,
-                          fontWeight: FontWeight.w500,
-
+                     FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          "현재 차압 : ${dpHistory.latestDpFor(host, unitId).toInt()}mmAq",
+                          style: TextStyle(
+                            fontSize: context.fs(12),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
                       ),
 
                       // 현재 차압 표시 카드-비활성 (12.12.11)
@@ -308,7 +318,7 @@ class _DpDetailPageState extends State<DpDetailPage> {
                 SettingsTile.navigation(
                   leading: const Icon(Icons.timer_outlined),
                   title: const Text('저차압 설정값'),
-                  value: Text('$dpLowLimit mmAq'),
+                  value: Text(dpLowLimit == 0 ? '사용 안 함' : '$dpLowLimit mmAq'),
                   onPressed: (_) async {
                     final saved = await showRegisterNumberEditor(
                       context: context,
@@ -320,7 +330,7 @@ class _DpDetailPageState extends State<DpDetailPage> {
                       min: 0,
                       max: 20,
                       accentColor: AppColor.duBlue,
-                      hintText: '0 ~ 20',
+                      hintText: '0 = 사용 안 함, 1~20 mmAq',
                     );
                     if (saved != null && mounted) {
                       setState(() => _dpLowLimit = saved);
@@ -362,23 +372,33 @@ class _DpDetailPageState extends State<DpDetailPage> {
                 tiles: [
                   CustomSettingsTile(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                      padding: EdgeInsets.symmetric(
+                        vertical: context.s(40),
+                        horizontal: AppSpacing.lg,
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.lock_person_outlined, size: 50, color: AppColor.duLightGrey),
-                          const SizedBox(height: 16),
-                          const Text(
+                          Icon(Icons.lock_person_outlined, size: context.s(50), color: AppColor.duLightGrey),
+                          SizedBox(height: AppSpacing.md),
+                          Text(
                             "관리자 전용 메뉴",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColor.duBlack),
+                            style: AppText.subtitle(context).copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColor.duBlack,
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
+                          SizedBox(height: AppSpacing.sm),
+                          Text(
                             "이 메뉴를 사용하려면\n '연결 설정'에서 관리자 인증이 필요합니다.",
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12, color: AppColor.duGrey, height: 1.5),
+                            style: TextStyle(
+                              fontSize: context.fs(12),
+                              color: AppColor.duGrey,
+                              height: 1.5,
+                            ),
                           ),
-                          const SizedBox(height: 20),
+                          SizedBox(height: AppSpacing.lg),
                           SizedBox(
                             width: w * 0.5,
                             child: FilledButton(
@@ -387,8 +407,8 @@ class _DpDetailPageState extends State<DpDetailPage> {
                               },
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppColor.duBlue,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
                               ),
                               child: const Text("인증하러 가기", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
@@ -532,10 +552,10 @@ class _DpHistoryChartState extends State<_DpHistoryChart> {
                         return LineTooltipItem(
                           //'$hh:$mm\n',
                           '$value mmAq',
-                          const TextStyle(
+                          TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
-                            fontSize: 10,
+                            fontSize: context.fs(10),
                           ),
 
                           /*children: [
@@ -581,7 +601,7 @@ class _DpHistoryChartState extends State<_DpHistoryChart> {
                         }
                         return Text(
                           value.toInt().toString(),
-                          style: const TextStyle(fontSize: 8),
+                          style: TextStyle(fontSize: context.fs(8)),
                         );
                       },
                       reservedSize: 32,
@@ -615,7 +635,7 @@ class _DpHistoryChartState extends State<_DpHistoryChart> {
                           space: 4,
                           child: Text(
                             label,
-                            style: const TextStyle(fontSize: 8),
+                            style: TextStyle(fontSize: context.fs(8)),
                           ),
                         );
                       },
@@ -642,8 +662,8 @@ class _DpHistoryChartState extends State<_DpHistoryChart> {
                           alignment: Alignment.topRight,
                           labelResolver: (_) =>
                           '과차압 ${widget.dpHighLimit} mmAq',
-                          style: const TextStyle(
-                            fontSize: 10,
+                          style: TextStyle(
+                            fontSize: context.fs(10),
                             fontWeight: FontWeight.w500,
                             color: AppColor.duRed,
                           ),
@@ -660,8 +680,8 @@ class _DpHistoryChartState extends State<_DpHistoryChart> {
                           alignment: Alignment.topRight,
                           labelResolver: (_) =>
                           '저차압 ${widget.dpLowLimit} mmAq',
-                          style: const TextStyle(
-                            fontSize: 10,
+                          style: TextStyle(
+                            fontSize: context.fs(10),
                             fontWeight: FontWeight.w500,
                             color: AppColor.duGreen,
                           ),

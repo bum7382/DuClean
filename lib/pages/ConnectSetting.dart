@@ -25,8 +25,8 @@ class ConnectSettingPage extends StatelessWidget {
         backgroundColor: AppColor.bg,
         appBar: AppBar(
           centerTitle: false,
-          title: const Text('기기 연결/권한 설정',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
+          title: Text('기기 연결/권한 설정',
+              style: TextStyle(color: Colors.white, fontSize: context.fs(20), fontWeight: FontWeight.w500)),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.of(context).popUntil((route) => route.settings.name == Routes.connectListPage),
@@ -48,19 +48,20 @@ class ConnectSettingPage extends StatelessWidget {
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         centerTitle: false,
-        title: const Text('기기 연결/권한 설정',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
+        title: Text('기기 연결/권한 설정',
+            style: TextStyle(color: Colors.white, fontSize: context.fs(20), fontWeight: FontWeight.w500)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         backgroundColor: AppColor.duBlue,
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        spacing: h * 0.03,
-        children: [
-          SizedBox(height: h * 0.02),
+      body: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          spacing: h * 0.03,
+          children: [
+            SizedBox(height: h * 0.02),
           // 로고 및 기기명
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -72,12 +73,16 @@ class ConnectSettingPage extends StatelessWidget {
                     : "assets/images/logo_black.png",
                 width: w * 0.1,
               ),
-              Text(
-                dev.name,
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: w * 0.05,
-                  color: AppColor.duBlue,
+              Flexible(
+                child: Text(
+                  dev.name,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: context.fs(20),
+                    color: AppColor.duBlue,
+                  ),
                 ),
               ),
             ],
@@ -112,13 +117,13 @@ class ConnectSettingPage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _infoRow('연결 상태', isConnected ? '연결됨' : '연결 끊김',
+                  _infoRow(context, '연결 상태', isConnected ? '연결됨' : '연결 끊김',
                       isConnected ? Colors.black : Colors.red),
-                  const SizedBox(height: 8),
-                  _infoRow('IP', dev.address, Colors.black),
-                  const SizedBox(height: 8),
-                  _infoRow('Unit ID', '${dev.unitId}', Colors.black),
-                  const SizedBox(height: 8),
+                  SizedBox(height: AppSpacing.sm),
+                  _infoRow(context, 'IP', dev.address, Colors.black),
+                  SizedBox(height: AppSpacing.sm),
+                  _infoRow(context, 'Unit ID', '${dev.unitId}', Colors.black),
+                  SizedBox(height: AppSpacing.sm),
                   // [추가] MAC 주소 표시
                   /*
                   _infoRow(
@@ -139,12 +144,12 @@ class ConnectSettingPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             spacing: 10,
             children: [
-              const Icon(Icons.lock_person, size: 35.0, color: Colors.red),
+              Icon(Icons.lock_person, size: context.s(35), color: Colors.red),
               Text(
                 '집진기 조작 권한 설정',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: w * 0.05,
+                  fontSize: context.fs(20),
                   color: AppColor.duBlack,
                 ),
               ),
@@ -158,8 +163,8 @@ class ConnectSettingPage extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: isConnected ? AppColor.duRed : AppColor.duBlue,
               elevation: 2,
-              textStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 20),
-              padding: const EdgeInsetsDirectional.symmetric(horizontal: 30, vertical: 10),
+              textStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: context.fs(20)),
+              padding: EdgeInsetsDirectional.symmetric(horizontal: AppSpacing.xl, vertical: context.s(10)),
             ),
             onPressed: () async {
               if (!context.mounted) return;
@@ -202,7 +207,7 @@ class ConnectSettingPage extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               spacing: 10,
               children: [
-                Icon(isConnected ? Icons.link_off : Icons.link, color: Colors.white, size: 20),
+                Icon(isConnected ? Icons.link_off : Icons.link, color: Colors.white, size: context.s(20)),
                 Text(
                   isConnected ? "연결 끊기" : "연결",
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
@@ -217,56 +222,64 @@ class ConnectSettingPage extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColor.duBlue,
                 elevation: 2,
-                textStyle: const TextStyle(fontWeight: FontWeight.w400, fontSize: 20),
-                padding: const EdgeInsetsDirectional.symmetric(horizontal: 30, vertical: 10),
+                textStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: context.fs(20)),
+                padding: EdgeInsetsDirectional.symmetric(horizontal: AppSpacing.xl, vertical: context.s(10)),
               ),
               onPressed: () {
                 Navigator.of(context).pushReplacementNamed(Routes.mainPage);
               },
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 spacing: 10,
                 children: [
-                  Icon(Icons.home_outlined, color: Colors.white, size: 20),
-                  Text("홈 화면으로", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                  Icon(Icons.home_outlined, color: Colors.white, size: context.s(20)),
+                  const Text("홈 화면으로", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
                 ],
               ),
             )
           else if (isConnected && !hasMacAddress)
           // [추가] 연결은 됐는데 MAC이 없어서 못 넘어가는 경우 안내
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: Text(
                 "MAC 주소가 없습니다.\n기기 목록에서 [수정]을 눌러 스캔을 다시 진행해주세요.",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColor.duRed, fontSize: 14, fontWeight: FontWeight.bold),
+                style: TextStyle(color: AppColor.duRed, fontSize: context.fs(14), fontWeight: FontWeight.bold),
               ),
             ),
-        ],
+            SizedBox(height: h * 0.03),
+          ],
+        ),
       ),
     );
   }
 
   // 정보 표시용 위젯 추출
-  Widget _infoRow(String label, String value, Color valueColor, [double size1 = 17, double size2 = 18]) {
+  Widget _infoRow(BuildContext context, String label, String value, Color valueColor, [double size1 = 17, double size2 = 18]) {
     return Row(
       children: [
         Text(
           label,
           style: TextStyle(
             fontWeight: FontWeight.w500,
-            fontSize: size1,
+            fontSize: context.fs(size1),
             color: Color(0xff444444),
           ),
         ),
-        const Spacer(),
-        Text(
-          value,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: size2,
-            color: valueColor,
+        SizedBox(width: AppSpacing.sm),
+        // Expanded + textAlign.end : 라벨 옆 모든 공간 차지하고 값을 우측 정렬.
+        // 값이 길면 ellipsis 로 잘림.
+        Expanded(
+          child: Text(
+            value,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: context.fs(size2),
+              color: valueColor,
+            ),
           ),
         ),
       ],
@@ -281,7 +294,7 @@ Widget _buildPermissionSection(BuildContext context, AuthService auth, dynamic d
 
   return BgContainer(
     width: MediaQuery.of(context).size.width * 0.9,
-    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+    padding: EdgeInsets.symmetric(vertical: context.s(10), horizontal: context.s(15)),
     child: Column(
       children: [
         // 사용자 권한 토글

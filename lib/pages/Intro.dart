@@ -101,14 +101,8 @@ class IntroPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
-    // 화면 크기
-    final w = context.screenWidth;
-    final h = context.screenHeight;
-
-    // 세로 모드 여부
+    // 세로 모드 여부 (현재 SystemChrome으로 portrait 고정이지만 분기 유지)
     final portrait = context.isPortrait;
-
 
     return Scaffold(
         backgroundColor: AppColor.bg,
@@ -118,10 +112,13 @@ class IntroPage extends StatelessWidget {
           title: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset('assets/images/logo_white.png', width: 100),
+              Image.asset('assets/images/logo_white.png', width: context.s(100)),
               Padding(
-                padding: const EdgeInsets.only(top:6),
-                child: Text(AppConst.version, style: TextStyle(color: Colors.white, fontSize: 13),),
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  AppConst.version,
+                  style: AppText.small(context).copyWith(color: Colors.white),
+                ),
               )
             ],
           ),
@@ -133,39 +130,52 @@ class IntroPage extends StatelessWidget {
           child: SingleChildScrollView(
             child: Center(
               child: Column(
-                spacing: 100,
+                spacing: context.s(100),
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  SizedBox(height: 100,),
-                  Text("Your Standard,\nDUCLEAN",style:
-                  TextStyle(fontSize: w * 0.08, fontWeight: FontWeight.w700,color: AppColor.duBlue),
-                    textAlign: TextAlign.center,),
+                  SizedBox(height: context.s(100)),
+                  Text(
+                    "Your Standard,\nDUCLEAN",
+                    style: AppText.display(context).copyWith(color: AppColor.duBlue),
+                    textAlign: TextAlign.center,
+                  ),
                   // 연결 목록 버튼
                   InkWell(
                     onTap: () {
                       Navigator.of(context).pushNamed(Routes.connectListPage);
                     },
                     child: BlueContainer(
-                      width: w * 0.6,
-                      height: portrait ? h * 0.07 : h * 0.2,
-                      radius: 100,
+                      width: context.wp(0.6),
+                      height: portrait ? context.hp(0.07) : context.hp(0.2),
+                      radius: AppRadius.pill,
                       child: Center(
-                        child: Text('연결 목록', style: TextStyle(color: Colors.white, fontSize: w * 0.05, fontWeight: FontWeight.w600),)
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '연결 목록',
+                            style: AppText.title(context).copyWith(color: Colors.white),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                   //앱사용 환경 안내 25.12.11
-                  SizedBox(height: 20,),
-                  Text("이 앱은 AirPulse형 집진기 전용입니다. \n IoT 컨트롤러에 RS485통신이 연결된 상태에서 사용가능합니다.\n\n-사용가능 집진기 모델 :AP, APD, APH, APR, FC, HD ",style:
-                  TextStyle(fontSize: w * 0.02, fontWeight: FontWeight.w200,color: AppColor.duBlue),
-                    textAlign: TextAlign.center,),
+                  SizedBox(height: AppSpacing.lg),
+                  Text(
+                    "이 앱은 AirPulse형 집진기 전용입니다. \n IoT 컨트롤러에 RS485통신이 연결된 상태에서 사용가능합니다.\n\n-사용가능 집진기 모델 :AP, APD, APH, APR, FC, HD ",
+                    style: AppText.caption(context).copyWith(
+                      fontWeight: FontWeight.w200,
+                      color: AppColor.duBlue,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
             ),
           ),
         ),
         bottomNavigationBar: BottomAppBar(
-          height: 10,
+          height: context.s(10),
           color: AppColor.duBlue,
         )
     );

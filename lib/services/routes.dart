@@ -37,8 +37,6 @@ class Routes {
   static const String alarmPage = '/alarmPage';
   static const String connectListPage = '/connectListPage';
   static const String connectSettingPage = '/connectSettingPage';
-  static const String motorCommandPage = '/motor-command';
-
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {

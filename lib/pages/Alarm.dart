@@ -52,8 +52,11 @@ class _AlarmPageState extends State<AlarmPage> {
 
   // 필터 및 기간 상태 변수
   int? _selectedCode; // null이면 전체
-  DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-  DateTime _endDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, 23, 59, 59);
+  // 기본값: 전체 기간 (사용자가 picker로 좁히기 전까지)
+  DateTime _startDate = DateTime(2023);
+  DateTime _endDate = DateTime.now().add(const Duration(days: 1));
+  // picker가 사용자에 의해 좁혀졌는지 여부 (false면 picker 열 때 오늘로 시작)
+  bool _hasUserPickedRange = false;
 
   // 필터 목록 정의
   final List<Map<String, dynamic>> _filters = [
@@ -77,10 +80,7 @@ class _AlarmPageState extends State<AlarmPage> {
     if (!_isInit) {
       _extractArguments();
       _stream = _alarmStream(); // 인자 확인 후 스트림 생성
-
-      // [추가] 화면 진입 시 백엔드 동기화 실행
-      _syncWithServer();
-
+      // 진입 시 sync는 _alarmStream 내부에서 즉시 수행됨 (별도 호출 X — race condition 방지)
       _isInit = true;
     }
   }
@@ -132,56 +132,79 @@ class _AlarmPageState extends State<AlarmPage> {
     }
   }
 
+  // 캐시 + 현재 필터 적용
+  Future<List<AlarmRecord>> _loadFiltered() async {
+    List<AlarmRecord> allRecords = await AlarmStore.loadAllSortedDesc();
+
+    if (_targetHost != null && _targetHost!.isNotEmpty) {
+      allRecords = allRecords.where((e) => e.host == _targetHost).toList();
+    }
+
+    if (_selectedCode != null) {
+      allRecords = allRecords.where((e) => e.code == _selectedCode).toList();
+    }
+
+    allRecords = allRecords.where((e) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(e.tsMs);
+      return dt.isAfter(_startDate) && dt.isBefore(_endDate);
+    }).toList();
+
+    return allRecords;
+  }
+
   // 동기화 호출
   Stream<List<AlarmRecord>> _alarmStream() async* {
+    // 진입 시: 캐시된 결과를 즉시 yield (스피너 대신 바로 화면 채움)
+    final cached = await _loadFiltered();
+    if (cached.isNotEmpty) yield cached;
+
+    // 이후 기존 3초 사이클 그대로
     while (mounted) {
       await _syncWithServer();
+      if (!mounted) break;
 
-      List<AlarmRecord> allRecords = await AlarmStore.loadAllSortedDesc();
-
-      // 1. 기기 필터링
-      if (_targetHost != null && _targetHost!.isNotEmpty) {
-        allRecords = allRecords.where((e) => e.host == _targetHost).toList();
-      }
-
-      // 2. 알람 종류 필터링
-      if (_selectedCode != null) {
-        allRecords = allRecords.where((e) => e.code == _selectedCode).toList();
-      }
-
-      // 3. 기간 필터링
-      allRecords = allRecords.where((e) {
-        final dt = DateTime.fromMillisecondsSinceEpoch(e.tsMs);
-        return dt.isAfter(_startDate) && dt.isBefore(_endDate);
-      }).toList();
-
-      yield allRecords;
+      yield await _loadFiltered();
       await Future.delayed(const Duration(seconds: 3));
     }
   }
 
   // 기간 선택 팝업
   Future<void> _showDateRangePicker() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+    // 처음 열 때(전체 상태): 오늘로 시작. 이미 사용자가 좁힌 적 있으면 그 범위 유지.
+    final initialRange = _hasUserPickedRange
+        ? DateTimeRange(start: _startDate, end: _endDate)
+        : DateTimeRange(start: today, end: endOfToday);
+
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      initialDateRange: initialRange,
       firstDate: DateTime(2023),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
+      lastDate: now.add(const Duration(days: 1)),
       locale: const Locale('ko', 'KR'),
       builder: (context, child) {
         return Theme(
           data: ThemeData.light().copyWith(
             scaffoldBackgroundColor: AppColor.bg,
-            // 전체적인 테마 색상 설정
             colorScheme: ColorScheme.light(
-              primary: AppColor.duBlue,
+              // 선택된 날짜(시작/끝) pill — 부드러운 톤
+              primary: const Color(0xFF80B4DB),
               onPrimary: Colors.white,
               secondary: AppColor.duBlue,
               onSecondary: Colors.white,
               surface: Colors.white,
               onSurface: Colors.black87,
-              primaryContainer: AppColor.duBlue.withValues(alpha: 0.1),
-              onPrimaryContainer: AppColor.duBlue,
+            ),
+            // 시작/끝 사이 구간 배경은 picker 전용 테마로 직접 지정
+            datePickerTheme: DatePickerThemeData(
+              rangeSelectionBackgroundColor:
+                  AppColor.duBlue.withValues(alpha: 0.08),
+              rangeSelectionOverlayColor: WidgetStatePropertyAll(
+                AppColor.duBlue.withValues(alpha: 0.12),
+              ),
             ),
             appBarTheme: const AppBarTheme(
               backgroundColor: AppColor.duBlue,
@@ -202,6 +225,7 @@ class _AlarmPageState extends State<AlarmPage> {
       setState(() {
         _startDate = DateTime(picked.start.year, picked.start.month, picked.start.day, 0, 0, 0);
         _endDate = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
+        _hasUserPickedRange = true;
         _stream = _alarmStream();
       });
       _syncWithServer();
@@ -209,20 +233,20 @@ class _AlarmPageState extends State<AlarmPage> {
   }
 
   // 상단 필터 위젯
-  Widget _buildFilterBar() {
+  Widget _buildFilterBar(BuildContext context) {
     return Container(
-      height: 50,
+      height: context.s(50),
       color: Colors.white,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: EdgeInsets.symmetric(horizontal: context.s(12)),
         itemCount: _filters.length,
         itemBuilder: (context, index) {
           final filter = _filters[index];
           final isSelected = _selectedCode == filter['code'];
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             child: ChoiceChip(
               label: Text(filter['label']),
               selected: isSelected,
@@ -238,7 +262,7 @@ class _AlarmPageState extends State<AlarmPage> {
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
               backgroundColor: Colors.grey[100],
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
               side: BorderSide.none,
             ),
           );
@@ -294,9 +318,6 @@ class _AlarmPageState extends State<AlarmPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 화면 크기
-    final w = context.screenWidth;
-
     // 타이틀: 기기 이름이 있으면 해당 이름 표시
     final titleText = _targetName != null ? '$_targetName 알람' : '알람 내역';
 
@@ -305,7 +326,11 @@ class _AlarmPageState extends State<AlarmPage> {
       appBar: AppBar(
         centerTitle: false,
         title: Text(titleText,
-            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w500)),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: context.fs(20),
+              fontWeight: FontWeight.w500,
+            )),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
@@ -321,7 +346,7 @@ class _AlarmPageState extends State<AlarmPage> {
       body:
         Column(
           children: [
-            _buildFilterBar(), // 상단 필터 바 추가
+            _buildFilterBar(context), // 상단 필터 바 추가
             const Divider(height: 1, thickness: 0.5),
             Expanded(
             child: StreamBuilder<List<AlarmRecord>>(
@@ -354,9 +379,12 @@ class _AlarmPageState extends State<AlarmPage> {
                     ],
                   )
                       : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: context.s(12),
+                    ),
                     itemCount: entries.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => SizedBox(height: context.s(12)),
                     itemBuilder: (context, i) {
                       final e = entries[i];
 
@@ -372,10 +400,13 @@ class _AlarmPageState extends State<AlarmPage> {
                       final isCleared = clearedAt != null;
 
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                          vertical: AppSpacing.md,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withAlpha(10),
@@ -397,37 +428,56 @@ class _AlarmPageState extends State<AlarmPage> {
                                     children: [
                                       Text(
                                         e.name,
-                                        style: TextStyle( fontSize: 11, fontWeight: FontWeight.w300,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          fontSize: context.fs(11),
+                                          fontWeight: FontWeight.w300,
                                           color: isCleared ? Colors.grey : AppColor.duBlue,
                                         ),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
                                         e.host,
-                                        style: TextStyle( fontSize: 10, fontWeight: FontWeight.w300,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          fontSize: context.fs(10),
+                                          fontWeight: FontWeight.w300,
                                           color: isCleared ? Colors.grey : Colors.black,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: AppSpacing.xs),
                                   Text("발생: $occurredTxt",
-                                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                      style: TextStyle(fontSize: context.fs(11), color: Colors.grey)),
                                   if (isCleared) ...[
                                     const SizedBox(height: 2),
                                     Text("해제: $clearedTxt",
-                                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                        style: TextStyle(fontSize: context.fs(11), color: Colors.grey)),
                                   ],
                                 ],
                               ),
                             ),
-                            // 오른쪽: 알람 메시지
-                            Text(
-                              msg,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: isCleared ? Colors.grey : Colors.redAccent,
+                            SizedBox(width: AppSpacing.sm),
+                            // 오른쪽: 알람 메시지 (좁은 폭에선 자동 축소)
+                            ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: context.wp(0.35)),
+                              child: Text(
+                                msg,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 2,
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: context.fs(14),
+                                  fontWeight: FontWeight.bold,
+                                  color: isCleared ? Colors.grey : Colors.redAccent,
+                                ),
                               ),
                             ),
                           ],

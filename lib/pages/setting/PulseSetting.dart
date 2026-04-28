@@ -167,7 +167,7 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
                     context: context,
                     title: '펄스 정지 편차',
                     icon: Icons.speed,
-                    address: 27,                 // #60 레지스터
+                    address: 28,
                     initialValue: pulseStopDp!,       // 현재값
                     writeRegister: widget.writeRegister,
                     min: 0,

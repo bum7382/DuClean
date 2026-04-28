@@ -90,17 +90,17 @@ class _PowerDetailPageState extends State<PowerDetailPage> {
     final w = context.screenWidth;
     final h = context.screenHeight;
 
-    // 세로 모드 여부
-    final portrait = context.isPortrait;
-
-
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColor.bg,
         appBar: AppBar(
-          title: const Text(
+          title: Text(
             '전류 트렌드(설정)',
-            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: context.fs(15),
+              fontWeight: FontWeight.w500,
+            ),
           ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -129,9 +129,13 @@ class _PowerDetailPageState extends State<PowerDetailPage> {
     return Scaffold(
       backgroundColor: AppColor.bg,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           '전류 트렌드(설정)',
-          style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: context.fs(15),
+            fontWeight: FontWeight.w500,
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -140,7 +144,7 @@ class _PowerDetailPageState extends State<PowerDetailPage> {
         backgroundColor: AppColor.duBlue,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(AppSpacing.md),
         child: SettingsList(
           lightTheme: const SettingsThemeData(
             settingsListBackground: AppColor.bg,
@@ -154,14 +158,16 @@ class _PowerDetailPageState extends State<PowerDetailPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     // 현재 전류 표시 ( 2개)25.12.11
                     children: [
-                    Text(
-                      "[전류1] ${currentP1}A    [전류2] ${currentP2}A",
-                      style: TextStyle(
-                        fontSize: w * 0.03,
-                        fontWeight: FontWeight.w300,
-
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        "[전류1] ${currentP1}A    [전류2] ${currentP2}A",
+                        style: TextStyle(
+                          fontSize: context.fs(12),
+                          fontWeight: FontWeight.w300,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
 
 
@@ -213,7 +219,7 @@ class _PowerDetailPageState extends State<PowerDetailPage> {
                           ],
                         ),
                       ),*/
-                      const SizedBox(height: 16),
+                      SizedBox(height: AppSpacing.md),
 
                       // 전류 히스토리 그래프 (한 화면 30분, 스크롤로 60분)
                       //최대 전류 표시 60A
@@ -457,23 +463,33 @@ class _PowerDetailPageState extends State<PowerDetailPage> {
                 tiles: [
                   CustomSettingsTile(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                      padding: EdgeInsets.symmetric(
+                        vertical: context.s(40),
+                        horizontal: AppSpacing.lg,
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.lock_person_outlined, size: 50, color: AppColor.duLightGrey),
-                          const SizedBox(height: 16),
-                          const Text(
+                          Icon(Icons.lock_person_outlined, size: context.s(50), color: AppColor.duLightGrey),
+                          SizedBox(height: AppSpacing.md),
+                          Text(
                             "관리자 전용 메뉴",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColor.duBlack),
+                            style: AppText.subtitle(context).copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColor.duBlack,
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
+                          SizedBox(height: AppSpacing.sm),
+                          Text(
                             "이 메뉴를 사용하려면\n '연결 설정'에서 관리자 인증이 필요합니다.",
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 12, color: AppColor.duGrey, height: 1.5),
+                            style: TextStyle(
+                              fontSize: context.fs(12),
+                              color: AppColor.duGrey,
+                              height: 1.5,
+                            ),
                           ),
-                          const SizedBox(height: 20),
+                          SizedBox(height: AppSpacing.lg),
                           SizedBox(
                             width: w * 0.5,
                             child: FilledButton(
@@ -482,8 +498,8 @@ class _PowerDetailPageState extends State<PowerDetailPage> {
                               },
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppColor.duBlue,
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
                               ),
                               child: const Text("인증하러 가기", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
@@ -647,18 +663,18 @@ class _PowerHistoryChartState extends State<_PowerHistoryChart> {
 
                         return LineTooltipItem(
                           '$hh:$mm  ($labelHead)\n',
-                          const TextStyle(
+                          TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
-                            fontSize: 10,
+                            fontSize: context.fs(10),
                           ),
                           children: [
                             TextSpan(
                               text: '$value A',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w400,
-                                fontSize: 10,
+                                fontSize: context.fs(10),
                               ),
                             ),
                           ],
@@ -694,7 +710,7 @@ class _PowerHistoryChartState extends State<_PowerHistoryChart> {
                         }
                         return Text(
                           value.toInt().toString(),
-                          style: const TextStyle(fontSize: 10),
+                          style: TextStyle(fontSize: context.fs(10)),
                         );
                       },
                       reservedSize: 32,
@@ -729,7 +745,7 @@ class _PowerHistoryChartState extends State<_PowerHistoryChart> {
                           space: 4,
                           child: Text(
                             label,
-                            style: const TextStyle(fontSize: 10),
+                            style: TextStyle(fontSize: context.fs(10)),
                           ),
                         );
                       },
@@ -755,8 +771,8 @@ class _PowerHistoryChartState extends State<_PowerHistoryChart> {
                         alignment: Alignment.bottomRight,
                         labelResolver: (_) =>
                         '과전류 ${limitA.toStringAsFixed(1)}A',
-                        style: const TextStyle(
-                          fontSize: 10,
+                        style: TextStyle(
+                          fontSize: context.fs(10),
                           fontWeight: FontWeight.w600,
                           color: AppColor.duRed,
                         ),

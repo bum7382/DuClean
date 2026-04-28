@@ -82,8 +82,8 @@ class _AlarmSettingPageState extends State<FrequencySettingPage> {
             // 2. 값 범위 제한(Clamping) 및 할당
             freqRun    = runVal.clamp(0, 400);
             freqMin    = minVal.clamp(0, 20);
-            freqMax    = maxVal.clamp(-500, 500); // 주의: ModbusManager가 signed를 지원해야 함
-            freqAdjust = adjVal.clamp(1, 8);
+            freqMax    = maxVal.clamp(30, 400);
+            freqAdjust = adjVal.clamp(-500, 500);
 
             _loadFailed = false;
           });

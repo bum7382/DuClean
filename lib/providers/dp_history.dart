@@ -28,17 +28,17 @@ class DpHistory extends ChangeNotifier {
     return _store.putIfAbsent(k, () => _DeviceDpHistory());
   }
 
-  /// 🔹 그래프용: 초당 1점, 기기별 저장
-  /// 🔹 게이지용: 초단위 최신 값 유지
+  /// 그래프용: 초당 1점, 기기별 저장
+  /// 게이지용: 초단위 최신 값 유지
   void addPointFor(String host, int unitId, double value) {
     final now = DateTime.now();
     final dev = _ensure(host, unitId);
 
-    // 1) 게이지용: 항상 최신 값
+    // 게이지용: 항상 최신 값
     dev.latestValue = value;
 
-    // 2) 그래프용: "초" 단위 타임스탬프 (예: 10:23:12 ) ----실시간 그래프 표시
-    final minuteTs = DateTime(
+    // 그래프용: 초 단위 타임스탬프
+    final secondTs = DateTime(
       now.year,
       now.month,
       now.day,
@@ -48,10 +48,10 @@ class DpHistory extends ChangeNotifier {
     );
 
     if (dev.points.isEmpty) {
-      dev.points.add(DpPoint(time: minuteTs, value: value));
+      dev.points.add(DpPoint(time: secondTs, value: value));
     } else {
       final last = dev.points.last;
-      final lastMinuteTs = DateTime(
+      final lastSecondTs = DateTime(
         last.time.year,
         last.time.month,
         last.time.day,
@@ -60,17 +60,15 @@ class DpHistory extends ChangeNotifier {
         last.time.second,
       );
 
-      // 🔹 새 분으로 넘어갔을 때만 새 포인트 추가
-      if (lastMinuteTs.isBefore(minuteTs)) {
-        dev.points.add(DpPoint(time: minuteTs, value: value));
+      // 새 초로 넘어갔을 때만 새 포인트 추가
+      if (lastSecondTs.isBefore(secondTs)) {
+        dev.points.add(DpPoint(time: secondTs, value: value));
       }
-      // 같은 분이면 dev.points는 그대로 → 그래프는 그 분 동안 값 고정
     }
 
-    // 3) 이 기기의 60분 이전 데이터 삭제
     _pruneOldFor(dev, now);
 
-    // 4) 빌드 중 경고 방지: 다음 microtask에서 알림
+    // 빌드 중 notify 경고 방지
     Future.microtask(() {
       notifyListeners();
     });
@@ -83,14 +81,14 @@ class DpHistory extends ChangeNotifier {
     }
   }
 
-  /// 🔹 특정 기기 히스토리 (그래프용, 분단위)
+  /// 특정 기기 히스토리 (그래프용, 초단위)
   List<DpPoint> pointsFor(String host, int unitId) {
     final dev = _store[_key(host, unitId)];
     if (dev == null) return const [];
     return List.unmodifiable(dev.points);
   }
 
-  /// 🔹 특정 기기 최신 차압 값 (게이지용, 초단위)
+  /// 특정 기기 최신 차압 값 (게이지용, 초단위)
   double latestDpFor(String host, int unitId) {
     final dev = _store[_key(host, unitId)];
     return dev?.latestValue ?? 0;
