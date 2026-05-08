@@ -71,6 +71,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
+    - assets/images/tutorial/
     - .env
 
   # The following line ensures that the Material Icons font is

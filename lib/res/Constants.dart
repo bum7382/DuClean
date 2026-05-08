@@ -167,7 +167,7 @@ class AppColor {
 }
 
 class AppConst {
-  static const version = 'V 1.1.8';
+  static const version = 'V 1.1.9';
 }
 
 /// 기기 식별용 간단 모델 (ConnectList에서 사용)

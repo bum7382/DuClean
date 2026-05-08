@@ -268,10 +268,31 @@ class _ConnectListPageState extends State<ConnectListPage> {
         ),
         backgroundColor: AppColor.duBlue,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addDevice,
-        backgroundColor: AppColor.duBlue,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: SizedBox(
+          width: context.screenWidth - 32,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              FloatingActionButton(
+                heroTag: 'tutorial_help',
+                onPressed: () => _showTutorial(context),
+                backgroundColor: Colors.white,
+                tooltip: '튜토리얼',
+                shape: const CircleBorder(),
+                child: const Icon(Icons.question_mark, color: AppColor.duBlue),
+              ),
+              FloatingActionButton(
+                heroTag: 'add_device',
+                onPressed: _addDevice,
+                backgroundColor: AppColor.duBlue,
+                child: const Icon(Icons.add, color: Colors.white),
+              ),
+            ],
+          ),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -306,6 +327,134 @@ class _ConnectListPageState extends State<ConnectListPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _showTutorial(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black.withOpacity(0.85),
+        pageBuilder: (_, __, ___) => const _TutorialViewer(),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 튜토리얼 뷰어 (페이지를 넘기며 이미지 차례대로 표시)
+// ---------------------------------------------------------------------------
+
+class _TutorialViewer extends StatefulWidget {
+  const _TutorialViewer();
+
+  @override
+  State<_TutorialViewer> createState() => _TutorialViewerState();
+}
+
+class _TutorialViewerState extends State<_TutorialViewer> {
+  static const int _totalPages = 17;
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goPrev() {
+    if (_currentPage > 0) {
+      _pageController.previousPage(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _goNext() {
+    if (_currentPage < _totalPages - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            PageView.builder(
+              controller: _pageController,
+              itemCount: _totalPages,
+              onPageChanged: (i) => setState(() => _currentPage = i),
+              itemBuilder: (_, i) {
+                return Center(
+                  child: Image.asset(
+                    'assets/images/tutorial/Page${i + 1}.png',
+                    fit: BoxFit.contain,
+                  ),
+                );
+              },
+            ),
+            // 좌/우 탭 영역 (상하단 컨트롤 회피, 스와이프는 PageView가 처리)
+            Positioned(
+              top: 60,
+              bottom: 24,
+              left: 0,
+              right: 0,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: _goPrev,
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: _goNext,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 16,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_currentPage + 1} / $_totalPages',
+                    style: TextStyle(color: Colors.white, fontSize: context.fs(13)),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
