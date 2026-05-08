@@ -39,14 +39,14 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.2.1
   animations: ^2.0.11
-  syncfusion_flutter_gauges: ^31.1.21
+  syncfusion_flutter_gauges: ^33.2.5
   shared_preferences: ^2.5.3
   provider: ^6.1.5+1
   material_symbols_icons: ^4.2874.0
-  settings_ui: ^2.0.2
+  settings_ui: ^3.0.1
   fl_chart: ^1.1.1
   wifi_scan: ^0.4.1+2
-  permission_handler: ^11.3.0
+  permission_handler: ^12.0.1
   flutter_dotenv: ^6.0.0
   network_info_plus: ^7.0.0
   plugin_wifi_connect: ^2.0.1
@@ -61,7 +61,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -90,7 +90,49 @@ class _ConnectListPageState extends State<ConnectListPage> {
         }).toList();
       }
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+
+      // 등록된 기기가 없으면 하드웨어 보유 여부 확인 → 없다고 하면 안내 팝업
+      if (_items.isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _askHardwareExists(context);
+        });
+      }
+    }
+  }
+
+  // 등록된 기기가 없을 때: 하드웨어 보유 여부 먼저 확인
+  Future<void> _askHardwareExists(BuildContext context) async {
+    final hasHardware = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColor.bg,
+        title: Text('하드웨어 확인', style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600)),
+        content: Text(
+          '듀클린 하드웨어를 이미 보유하고 계신가요?',
+          style: TextStyle(fontSize: context.fs(14)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('아니요', style: TextStyle(color: AppColor.duBlue)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColor.duBlue),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('예'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (hasHardware == false) {
+      _showHardwareTutorial(context);
+    }
   }
 
   Future<void> _saveDevices() async {
@@ -331,12 +373,67 @@ class _ConnectListPageState extends State<ConnectListPage> {
     );
   }
 
-  void _showTutorial(BuildContext context) {
+  // ? 버튼: 하드웨어 / 기기 설정 튜토리얼 선택
+  void _showTutorial(BuildContext context) async {
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColor.bg,
+        title: Text('튜토리얼 선택', style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.build, color: AppColor.duBlue),
+              title: Text('1. 하드웨어 설정', style: TextStyle(fontSize: context.fs(14))),
+              onTap: () => Navigator.pop(ctx, 'hw'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings, color: AppColor.duBlue),
+              title: Text('2. 기기 설정', style: TextStyle(fontSize: context.fs(14))),
+              onTap: () => Navigator.pop(ctx, 'device'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소', style: TextStyle(color: AppColor.duBlue)),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || choice == null) return;
+
+    if (choice == 'hw') {
+      _showHardwareTutorial(context);
+    } else {
+      _showDeviceTutorial(context);
+    }
+  }
+
+  // 기기 설정 튜토리얼 (Page1~17)
+  void _showDeviceTutorial(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
         barrierColor: Colors.black.withOpacity(0.85),
         pageBuilder: (_, __, ___) => const _TutorialViewer(),
+      ),
+    );
+  }
+
+  // 등록된 기기가 없을 때 띄우는 하드웨어 설치 안내 (HWPage1~6)
+  void _showHardwareTutorial(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black.withOpacity(0.85),
+        pageBuilder: (_, __, ___) => const _TutorialViewer(
+          imagePrefix: 'HWPage',
+          totalPages: 6,
+        ),
       ),
     );
   }
@@ -347,16 +444,23 @@ class _ConnectListPageState extends State<ConnectListPage> {
 // ---------------------------------------------------------------------------
 
 class _TutorialViewer extends StatefulWidget {
-  const _TutorialViewer();
+  const _TutorialViewer({
+    this.imagePrefix = 'Page',
+    this.totalPages = 17,
+  });
+
+  final String imagePrefix;
+  final int totalPages;
 
   @override
   State<_TutorialViewer> createState() => _TutorialViewerState();
 }
 
 class _TutorialViewerState extends State<_TutorialViewer> {
-  static const int _totalPages = 17;
   final PageController _pageController = PageController();
   int _currentPage = 0;
+
+  int get _totalPages => widget.totalPages;
 
   @override
   void dispose() {
@@ -398,7 +502,7 @@ class _TutorialViewerState extends State<_TutorialViewer> {
               itemBuilder: (_, i) {
                 return Center(
                   child: Image.asset(
-                    'assets/images/tutorial/Page${i + 1}.png',
+                    'assets/images/tutorial/${widget.imagePrefix}${i + 1}.png',
                     fit: BoxFit.contain,
                   ),
                 );
