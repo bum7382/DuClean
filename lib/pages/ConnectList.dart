@@ -112,7 +112,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
         backgroundColor: AppColor.bg,
         title: Text('하드웨어 확인', style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600)),
         content: Text(
-          '듀클린 하드웨어를 이미 보유하고 계신가요?',
+          '듀크린 하드웨어를 이미 보유하고 계신가요?',
           style: TextStyle(fontSize: context.fs(14)),
         ),
         actions: [
@@ -373,7 +373,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
     );
   }
 
-  // ? 버튼: 하드웨어 / 기기 설정 튜토리얼 선택
+  // ? 버튼: 하드웨어 / 기기 설정 / 앱 설명 튜토리얼 선택
   void _showTutorial(BuildContext context) async {
     final choice = await showDialog<String>(
       context: context,
@@ -393,6 +393,11 @@ class _ConnectListPageState extends State<ConnectListPage> {
               title: Text('2. 기기 설정', style: TextStyle(fontSize: context.fs(14))),
               onTap: () => Navigator.pop(ctx, 'device'),
             ),
+            ListTile(
+              leading: const Icon(Icons.phone_android, color: AppColor.duBlue),
+              title: Text('3. 앱 설명', style: TextStyle(fontSize: context.fs(14))),
+              onTap: () => Navigator.pop(ctx, 'app'),
+            ),
           ],
         ),
         actions: [
@@ -408,6 +413,8 @@ class _ConnectListPageState extends State<ConnectListPage> {
 
     if (choice == 'hw') {
       _showHardwareTutorial(context);
+    } else if (choice == 'app') {
+      _showAppTutorial(context);
     } else {
       _showDeviceTutorial(context);
     }
@@ -419,7 +426,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
       PageRouteBuilder(
         opaque: false,
         barrierColor: Colors.black.withOpacity(0.85),
-        pageBuilder: (_, __, ___) => const _TutorialViewer(),
+        pageBuilder: (_, __, ___) => const TutorialViewer(),
       ),
     );
   }
@@ -430,9 +437,23 @@ class _ConnectListPageState extends State<ConnectListPage> {
       PageRouteBuilder(
         opaque: false,
         barrierColor: Colors.black.withOpacity(0.85),
-        pageBuilder: (_, __, ___) => const _TutorialViewer(
+        pageBuilder: (_, __, ___) => const TutorialViewer(
           imagePrefix: 'HWPage',
           totalPages: 6,
+        ),
+      ),
+    );
+  }
+
+  // 앱 설명 튜토리얼 (AppPage1~17)
+  void _showAppTutorial(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black.withOpacity(0.85),
+        pageBuilder: (_, __, ___) => const TutorialViewer(
+          imagePrefix: 'AppPage',
+          totalPages: 17,
         ),
       ),
     );
@@ -443,8 +464,9 @@ class _ConnectListPageState extends State<ConnectListPage> {
 // 튜토리얼 뷰어 (페이지를 넘기며 이미지 차례대로 표시)
 // ---------------------------------------------------------------------------
 
-class _TutorialViewer extends StatefulWidget {
-  const _TutorialViewer({
+class TutorialViewer extends StatefulWidget {
+  const TutorialViewer({
+    super.key,
     this.imagePrefix = 'Page',
     this.totalPages = 17,
   });
@@ -453,10 +475,10 @@ class _TutorialViewer extends StatefulWidget {
   final int totalPages;
 
   @override
-  State<_TutorialViewer> createState() => _TutorialViewerState();
+  State<TutorialViewer> createState() => TutorialViewerState();
 }
 
-class _TutorialViewerState extends State<_TutorialViewer> {
+class TutorialViewerState extends State<TutorialViewer> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 

@@ -1,8 +1,10 @@
 // dart 기본 라이브러리
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // 페이지
+import 'package:duclean/pages/ConnectList.dart';
 import 'package:duclean/pages/schedule/Schedule.dart';
 import 'package:duclean/pages/setting/AlarmSetting.dart';
 import 'package:duclean/pages/setting/FrequencySetting.dart';
@@ -134,6 +136,8 @@ class _MainPageState extends State<MainPage> {
   int _pollFailCount = 0;
   static const int _failToShowLoading = 2;
 
+  static const String _kFirstVisitKey = 'main_first_visit_done_v1';
+
   @override
   void initState() {
     super.initState();
@@ -147,6 +151,62 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
     );
+
+    // 첫 방문이면 튜토리얼 안내 팝업
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _maybeShowFirstVisitTutorial();
+    });
+  }
+
+  Future<void> _maybeShowFirstVisitTutorial() async {
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool(_kFirstVisitKey) ?? false;
+    if (done) return;
+    // 다음 진입부터는 묻지 않도록 즉시 플래그 저장
+    await prefs.setBool(_kFirstVisitKey, true);
+
+    if (!mounted) return;
+    final wantTutorial = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColor.bg,
+        title: Text(
+          '환영합니다',
+          style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          '듀크린 IoT 앱이 처음이신가요?\n튜토리얼을 보시겠습니까?',
+          style: TextStyle(fontSize: context.fs(14)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('아니요', style: TextStyle(color: AppColor.duBlue)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColor.duBlue),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('예'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (wantTutorial == true) {
+      Navigator.of(context).push(
+        PageRouteBuilder(
+          opaque: false,
+          barrierColor: Colors.black.withOpacity(0.85),
+          pageBuilder: (_, __, ___) => const TutorialViewer(
+            imagePrefix: 'AppPage',
+            totalPages: 17,
+          ),
+        ),
+      );
+    }
   }
 
   int _currentIndex = 0;
