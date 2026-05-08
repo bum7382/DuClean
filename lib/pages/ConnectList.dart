@@ -481,16 +481,41 @@ class TutorialViewer extends StatefulWidget {
 class TutorialViewerState extends State<TutorialViewer> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  late final List<TransformationController> _zoomCtrls;
+  bool _isZoomed = false;
 
   int get _totalPages => widget.totalPages;
 
   @override
+  void initState() {
+    super.initState();
+    _zoomCtrls = List.generate(_totalPages, (_) => TransformationController());
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
+    for (final c in _zoomCtrls) {
+      c.dispose();
+    }
     super.dispose();
   }
 
+  void _onInteractionEnd(int index) {
+    final scale = _zoomCtrls[index].value.getMaxScaleOnAxis();
+    final zoomed = scale > 1.01;
+    if (zoomed != _isZoomed && mounted) {
+      setState(() => _isZoomed = zoomed);
+    }
+  }
+
+  void _resetZoom() {
+    _zoomCtrls[_currentPage].value = Matrix4.identity();
+    if (_isZoomed) setState(() => _isZoomed = false);
+  }
+
   void _goPrev() {
+    if (_isZoomed) return; // 줌 상태에서는 페이지 이동 막기
     if (_currentPage > 0) {
       _pageController.previousPage(
         duration: const Duration(milliseconds: 250),
@@ -500,6 +525,7 @@ class TutorialViewerState extends State<TutorialViewer> {
   }
 
   void _goNext() {
+    if (_isZoomed) return;
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 250),
@@ -520,39 +546,61 @@ class TutorialViewerState extends State<TutorialViewer> {
             PageView.builder(
               controller: _pageController,
               itemCount: _totalPages,
-              onPageChanged: (i) => setState(() => _currentPage = i),
+              physics: _isZoomed
+                  ? const NeverScrollableScrollPhysics()
+                  : const PageScrollPhysics(),
+              onPageChanged: (i) {
+                // 페이지 바뀌면 이전 페이지 줌 초기화
+                _zoomCtrls[_currentPage].value = Matrix4.identity();
+                setState(() {
+                  _currentPage = i;
+                  _isZoomed = false;
+                });
+              },
               itemBuilder: (_, i) {
-                return Center(
-                  child: Image.asset(
-                    'assets/images/tutorial/${widget.imagePrefix}${i + 1}.png',
-                    fit: BoxFit.contain,
+                return InteractiveViewer(
+                  transformationController: _zoomCtrls[i],
+                  minScale: 1.0,
+                  maxScale: 5.0,
+                  panEnabled: true,
+                  scaleEnabled: true,
+                  onInteractionEnd: (_) => _onInteractionEnd(i),
+                  child: Center(
+                    child: Image.asset(
+                      'assets/images/tutorial/${widget.imagePrefix}${i + 1}.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 );
               },
             ),
             // 좌/우 탭 영역 (상하단 컨트롤 회피, 스와이프는 PageView가 처리)
-            Positioned(
-              top: 60,
-              bottom: 24,
-              left: 0,
-              right: 0,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: _goPrev,
+            // 줌 상태에서는 탭 네비게이션을 비활성화하여 InteractiveViewer가 팬을 처리하게 함
+            if (!_isZoomed)
+              Positioned(
+                top: 60,
+                bottom: 24,
+                left: 0,
+                right: 0,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: _goPrev,
+                        onDoubleTap: _resetZoom,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: _goNext,
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: _goNext,
+                        onDoubleTap: _resetZoom,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             Positioned(
               top: 16,
               left: 0,
