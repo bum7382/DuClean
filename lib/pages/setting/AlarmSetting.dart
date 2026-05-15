@@ -107,11 +107,6 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
       body: SettingsList(
         sections: [
           SettingsSection(
-              margin: const EdgeInsetsDirectional.only(
-                top: 4,
-                bottom: 100,
-              ),
-
             title: Text("필터"),
             tiles: [
               SettingsTile.navigation(
@@ -167,7 +162,7 @@ class _AlarmSettingPageState extends State<AlarmSettingPage> {
             ]
           ),
           SettingsSection(
-           // title: Text("모터"),
+            title: Text("모터"),
             tiles: [
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,

@@ -28,13 +28,15 @@ class PulseSettingPage extends StatefulWidget {
 class _AlarmSettingPageState extends State<PulseSettingPage> {
   int? pulseRunDp; // 펄스 작동 차압
   int? pulseStopDp; // 펄스 정지 편차
-  int? pulseRunTime; // 펄스 동작 시간
-  int? pulseDelayTime; // 펄스 지연 시간
+  int? pulseRunTime; // 펄스 동작 시간 (40031, ms)
+  int? pulseDelayTime; // 펄스 지연 시간 (40032, s)
   int? pulseSolCount; // 펄싱 솔밸브 개수
   int? pulseAutoTime; // 자동 펄스 시간
   int? pulseAddCycle; // 추가 펄스 주기
   bool? pulseManualMode; // 수동 펄스 모드
   int? pulseManualCycle;  // 수동 펄스 주기
+  int? fanRunTimeRaw; // 40057 팬 작동시간 (raw 0~500, 배율 0.1 → ms)
+  int? autoPulseStartDelay; // 40074 자동펄스 시작 지연 시간 (0: 사용안함, 1~3600초)
 
   bool _loadFailed = false;          // 모든 시도 실패 여부
   static const int _maxRetry = 10;
@@ -58,21 +60,23 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
       pulseAddCycle = null;
       pulseManualMode = null;
       pulseManualCycle = null;
+      fanRunTimeRaw = null;
+      autoPulseStartDelay = null;
     });
 
     for (int attempt = 1; attempt <= _maxRetry; attempt++) {
       try {
-        // 주소 26번부터 64번까지(총 39개) 한 번에 읽기
+        // 주소 26번부터 73번까지(총 48개) 한 번에 읽기
         final List<int>? results = await ModbusManager.instance.readHoldingRange(
           context,
           host: widget.host,
           unitId: widget.unitId,
           startAddress: 26,
-          count: 39,           // 64 - 26 + 1
+          count: 48,           // 73 - 26 + 1
           name: 'PulseSettings',
         );
 
-        if (results != null && results.length >= 39) {
+        if (results != null && results.length >= 48) {
           if (!mounted) return;
           setState(() {
             // 인덱스 계산: 결과 리스트[대상 주소 - 시작 주소(26)]
@@ -84,7 +88,9 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
             final int solCountVal   = results[7];  // 33 - 26
             final int manualCycleVal = results[27]; // 53 - 26
             final int manualModeVal  = results[28]; // 54 - 26
+            final int fanRunTimeVal  = results[30]; // 56 - 26
             final int autoTimeVal    = results[38]; // 64 - 26
+            final int autoStartDelayVal = results[47]; // 73 - 26
 
             // 값 범위 제한(Clamping) 및 할당
             pulseRunDp       = runDpVal.clamp(0, 300);
@@ -96,6 +102,8 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
             pulseAddCycle    = addCycleVal.clamp(0, 5);
             pulseManualMode  = (manualModeVal == 1);
             pulseManualCycle = manualCycleVal.clamp(1, 50);
+            fanRunTimeRaw    = fanRunTimeVal.clamp(0, 500);
+            autoPulseStartDelay = autoStartDelayVal.clamp(0, 3600);
 
             _loadFailed = false;
           });
@@ -117,10 +125,117 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
 
 
 
+  // 0.1 ms 배율 레지스터 편집기. 사용자는 ms(소수 1자리)로 입력하고 raw = round(ms * 10).
+  Future<int?> _showScaledMsEditor({
+    required BuildContext context,
+    required String title,
+    required int initialRaw,
+    required int minRaw,
+    required int maxRaw,
+    required Future<bool> Function(int raw) onWriteRaw,
+  }) async {
+    final double minMs = minRaw * 0.1;
+    final double maxMs = maxRaw * 0.1;
+    final controller = TextEditingController(
+      text: (initialRaw * 0.1).toStringAsFixed(1),
+    );
+    String? error;
+
+    return showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 12,
+              bottom: 12 + MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: StatefulBuilder(
+              builder: (ctx, setLocal) {
+                Future<void> onSave() async {
+                  final parsed = double.tryParse(controller.text.trim());
+                  if (parsed == null || parsed < minMs || parsed > maxMs) {
+                    setLocal(() => error =
+                        '${minMs.toStringAsFixed(1)} ~ ${maxMs.toStringAsFixed(1)} ms 사이의 값을 입력하세요.');
+                    return;
+                  }
+                  final raw = (parsed * 10).round().clamp(minRaw, maxRaw);
+                  final ok = await onWriteRaw(raw);
+                  if (ok) {
+                    Navigator.pop<int>(ctx, raw);
+                  } else {
+                    setLocal(() => error = '저장 실패');
+                  }
+                }
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Symbols.toys_fan_rounded, color: AppColor.duBlue),
+                        const SizedBox(width: 8),
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: controller,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      cursorColor: AppColor.duBlue,
+                      decoration: InputDecoration(
+                        hintText:
+                            '${minMs.toStringAsFixed(1)} ~ ${maxMs.toStringAsFixed(1)} ms (0.1 단위)',
+                        errorText: error,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        focusedBorder: const OutlineInputBorder(
+                          borderSide: BorderSide(color: AppColor.duBlue),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          style: TextButton.styleFrom(foregroundColor: AppColor.duBlue),
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('취소'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          style: FilledButton.styleFrom(backgroundColor: AppColor.duBlue),
+                          onPressed: onSave,
+                          child: const Text('저장'),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (pulseRunDp == null || pulseStopDp == null || pulseRunTime == null || pulseDelayTime == null || pulseSolCount  == null ||
-        pulseAutoTime  == null || pulseAddCycle  == null || pulseManualMode == null || pulseManualCycle  == null) {
+        pulseAutoTime  == null || pulseAddCycle  == null || pulseManualMode == null || pulseManualCycle  == null ||
+        fanRunTimeRaw == null || autoPulseStartDelay == null) {
       return const Scaffold(
         backgroundColor: AppColor.bg,
         body: Center(child: CircularProgressIndicator(color: AppColor.duBlue,)),
@@ -209,7 +324,7 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
               SettingsTile.navigation(
                 leading: const Icon(Icons.pause_circle),
                 title: const Text('펄스 지연 시간'),
-                value: Text('${pulseDelayTime!} ms'),
+                value: Text('${pulseDelayTime!} 초'),
                 onPressed: (_) async {
                   final saved = await showRegisterNumberEditor(
                     context: context,
@@ -221,12 +336,33 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
                     min: 0,
                     max: 999,
                     accentColor: AppColor.duBlue,
-                    hintText: '0 ~ 999',
+                    hintText: '0 ~ 999 (초)',
                   );
                   if (saved != null && mounted) {
                     setState(() => pulseDelayTime = saved);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('펄스 지연 시간이 저장되었습니다.')),
+                    );
+                  }
+                },
+              ),
+              SettingsTile.navigation(
+                leading: const Icon(Symbols.toys_fan_rounded),
+                title: const Text('팬 작동시간'),
+                value: Text('${(fanRunTimeRaw! * 0.1).toStringAsFixed(1)} ms'),
+                onPressed: (_) async {
+                  final saved = await _showScaledMsEditor(
+                    context: context,
+                    title: '팬 작동시간',
+                    initialRaw: fanRunTimeRaw!,
+                    minRaw: 0,
+                    maxRaw: 500,
+                    onWriteRaw: (raw) => widget.writeRegister(56, raw),
+                  );
+                  if (saved != null && mounted) {
+                    setState(() => fanRunTimeRaw = saved);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('팬 작동시간이 저장되었습니다.')),
                     );
                   }
                 },
@@ -285,6 +421,34 @@ class _AlarmSettingPageState extends State<PulseSettingPage> {
                     setState(() => pulseAutoTime = saved);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('자동 펄스 시간이 저장되었습니다.')),
+                    );
+                  }
+                },
+              ),
+              SettingsTile.navigation(
+                leading: const Icon(Icons.timer_outlined),
+                title: const Text('자동펄스 시작 지연 시간'),
+                description: const Text('운전 시작 후 자동펄스 개시까지 지연(0: 사용안함)'),
+                value: Text(autoPulseStartDelay! == 0
+                    ? '사용안함'
+                    : '${autoPulseStartDelay!} 초'),
+                onPressed: (_) async {
+                  final saved = await showRegisterNumberEditor(
+                    context: context,
+                    title: '자동펄스 시작 지연 시간',
+                    icon: Icons.timer_outlined,
+                    address: 73,
+                    initialValue: autoPulseStartDelay!,
+                    writeRegister: widget.writeRegister,
+                    min: 0,
+                    max: 3600,
+                    accentColor: AppColor.duBlue,
+                    hintText: '0(사용안함) ~ 3600',
+                  );
+                  if (saved != null && mounted) {
+                    setState(() => autoPulseStartDelay = saved);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('자동펄스 시작 지연 시간이 저장되었습니다.')),
                     );
                   }
                 },

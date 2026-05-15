@@ -445,7 +445,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
     );
   }
 
-  // 앱 설명 튜토리얼 (AppPage1~17)
+  // 앱 설명 튜토리얼 (AppPage1~18)
   void _showAppTutorial(BuildContext context) {
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -453,7 +453,7 @@ class _ConnectListPageState extends State<ConnectListPage> {
         barrierColor: Colors.black.withOpacity(0.85),
         pageBuilder: (_, __, ___) => const TutorialViewer(
           imagePrefix: 'AppPage',
-          totalPages: 17,
+          totalPages: 18,
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:duclean/res/Constants.dart';
 import 'package:duclean/services/alarm_store.dart';
+import 'package:duclean/services/modbus_manager.dart';
 import 'package:duclean/common/context_extensions.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -48,6 +49,7 @@ class _AlarmPageState extends State<AlarmPage> {
   String? _targetHost;
   String? _targetName;
   String? _targetMac;
+  int? _targetUnitId;
   bool _isInit = false;
 
   // 필터 및 기간 상태 변수
@@ -94,6 +96,8 @@ class _AlarmPageState extends State<AlarmPage> {
         _targetHost = args['host']; // 예: '192.168.0.10'
         _targetName = args['name']; // 예: 'AP-500'
         _targetMac = args['mac'];
+        final uid = args['unitId'];
+        if (uid is int) _targetUnitId = uid;
       } catch (_) {
         // 구조가 다르면 무시 (전체 알람 표시)
       }
@@ -271,6 +275,37 @@ class _AlarmPageState extends State<AlarmPage> {
     );
   }
 
+  // 부저 정지 (40002, address 1)
+  Future<void> _onBuzzerStopPressed() async {
+    if (_targetHost == null || _targetUnitId == null) return;
+    try {
+      await ModbusManager.instance.writeHolding(
+        context,
+        host: _targetHost!,
+        unitId: _targetUnitId!,
+        name: _targetName ?? _defaultDeviceName,
+        address: 1,
+        value: 1,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('부저를 정지했습니다.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      debugPrint('부저 정지 실패: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('부저 정지 실패'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   Future<void> _onDeleteAllPressed() async {
     // 다이얼로그 메시지 분기 처리
     final String contentMsg = _targetName != null
@@ -336,6 +371,12 @@ class _AlarmPageState extends State<AlarmPage> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          if (_targetHost != null && _targetUnitId != null)
+            IconButton(
+              tooltip: '부저 정지',
+              icon: const Icon(Icons.notifications_off_outlined, color: Colors.white),
+              onPressed: _onBuzzerStopPressed,
+            ),
           IconButton(
             icon: const Icon(Icons.tune, color: Colors.white), // 필터/날짜 아이콘
             onPressed: _showDateRangePicker,

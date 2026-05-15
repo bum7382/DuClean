@@ -92,7 +92,7 @@ class _MainPageState extends State<MainPage> {
   var filterCount = 0; // 필터 교체 횟수
 
   int activeSolValveNo = 0; // 동작 솔밸브 번호
-  var manualPulseStatus; // 수동펄스상태
+  int manualPulseRun = 0; // 수동펄싱 운전/정지 상태 (40007: 0=정지, 1=운전)
 
   var ao1diffPressure; // AO1 차압출력
   var ao2Frequency; // AO2 주파수 출력
@@ -202,7 +202,7 @@ class _MainPageState extends State<MainPage> {
           barrierColor: Colors.black.withOpacity(0.85),
           pageBuilder: (_, __, ___) => const TutorialViewer(
             imagePrefix: 'AppPage',
-            totalPages: 17,
+            totalPages: 18,
           ),
         ),
       );
@@ -304,6 +304,8 @@ class _MainPageState extends State<MainPage> {
     final fMode = _get(50, defaultValue: 0);
     final pAuto = _get(54, defaultValue: 0);
 
+    final mPulse = await readRegister(6);
+
     if (!mounted) return;
     setState(() {
       runMode = (mode != null && mode >= 0 && mode < runModeList.length)
@@ -321,6 +323,7 @@ class _MainPageState extends State<MainPage> {
       powerDiff = pDiff;
       freqSelectMode = fMode;
       pulseAutoMode = pAuto;
+      if (mPulse != null) manualPulseRun = mPulse;
     });
   }
 
@@ -361,6 +364,8 @@ class _MainPageState extends State<MainPage> {
       final fMode = _get(50);
       final pAuto = _get(54);
 
+      final mPulse = await readRegister(6);
+
       if (!mounted) return;
       setState(() {
         runMode = (mode >= 0 && mode < runModeList.length)
@@ -377,6 +382,7 @@ class _MainPageState extends State<MainPage> {
         powerDiff = pDiff;
         freqSelectMode = fMode;
         pulseAutoMode = pAuto;
+        if (mPulse != null) manualPulseRun = mPulse;
       });
     } catch (e) {
       debugPrint('홀딩 재읽기 실패: $e');
@@ -435,7 +441,10 @@ class _MainPageState extends State<MainPage> {
           );
         }
 
-        await _client!.send(_inputs.getReadRequest());
+        // 같은 host#unitId 의 다른 send와 직렬화 (OptionSetting/PulseSetting 등의 holding 읽기 충돌 방지)
+        await ModbusManager.instance.withClientLock(_host, _unitId, () async {
+          await _client!.send(_inputs.getReadRequest());
+        });
 
         final dp = (_inputs[0] as ModbusUint16Register).value?.toInt() ?? 0;
         final p1 =
@@ -446,6 +455,10 @@ class _MainPageState extends State<MainPage> {
         final opLo = (_inputs[12] as ModbusUint16Register).value?.toInt() ?? 0;
         final pul = (_inputs[13] as ModbusUint16Register).value?.toInt() ?? 0;
         final run = (_inputs[14] as ModbusUint16Register).value?.toInt() ?? 0;
+        final solOpStatus =
+            (_inputs[15] as ModbusUint16Register).value?.toInt() ?? 0; // 30016 솔밸브 동작상태
+        final manualPulseInputStatus =
+            (_inputs[19] as ModbusUint16Register).value?.toInt() ?? 0; // 30020 수동펄스 상태
         final solNumber =
             (_inputs[18] as ModbusUint16Register).value?.toInt() ??
                 0; //동작 솔밸브 번호
@@ -483,6 +496,11 @@ class _MainPageState extends State<MainPage> {
           power2 = p2;
           operationTime = ((opHi & 0xFFFF) << 16) | (opLo & 0xFFFF);
           pulseStatus = pulseStatusLabel(pul);
+          // 30016 솔밸브동작 == 1 && 30020 수동펄스 == 1 이면 "수동 펄스" 로 표시 (pul 코드 보정)
+          if (solOpStatus == 1 && manualPulseInputStatus == 1) {
+            pulseStatus = "수동 펄스";
+            pulseColor = const Color(0xffF4FD00);
+          }
           motorStatus = (run != 0);
           currentAlarm = curAlarm;
           alarmCount = alarmCnt;
@@ -567,16 +585,19 @@ class _MainPageState extends State<MainPage> {
         return "자동 펄스";
       case 2:
         pulseColor = Color(0xffF4FD00);
-        return pulseAutoMode == 0 ? "수동 펄스" : "전자동 펄스";
+        return "수동 펄스";
       case 3:
+        pulseColor = Color(0xffF4FD00);
+        return "수동 펄스";
+      case 4:
+        pulseColor = Color(0xffF4FD00);
+        return "전자동 펄스";
+      case 5:
         pulseColor = Color(0xff4BFC06);
         return "추가 펄스";
-      case 4:
-        pulseColor = Color(0xff4BFC06);
-        return "일시 정지";
       default:
         pulseColor = Color(0xffF71041);
-        return "알수없음($code)";
+        return "일시 정지";
     }
   }
 
@@ -597,20 +618,30 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  // 부저 함수
+  // 펄스 정보 토글
   void _togglePulse() {
     setState(() {
       pulseDescription = !pulseDescription; // 현재 상태를 반전시킵니다.
     });
   }
 
-  // 펄스 정보
-  Future<void> _toggleBuzzer() async {
+  // 수동펄싱 운전/정지 토글 (40007)
+  // - 모터 OFF에서 시작 누르면 전자동 펄스, 모터 ON에서 시작 누르면 수동 펄스
+  // - 펄싱 진행 중(수동/전자동) 정지 네모 누르면 0 송신하여 정지
+  Future<void> _toggleManualPulse() async {
+    final isPulsing =
+        pulseStatus == "수동 펄스" || pulseStatus == "전자동 펄스";
+    final newVal = isPulsing ? 0 : 1;
     try {
+      final ok = await writeRegister(6, newVal);
       if (!mounted) return;
-      await writeRegister(1, 1);
+      if (ok) {
+        setState(() {
+          manualPulseRun = newVal;
+        });
+      }
     } catch (e) {
-      debugPrint('쓰기 실패: $e');
+      debugPrint('수동펄싱 토글 실패: $e');
     }
   }
 
@@ -649,10 +680,11 @@ class _MainPageState extends State<MainPage> {
           powerDiff: powerDiff,
           pulseDescription: pulseDescription,
           freqSelectMode: freqSelectMode,
+          manualPulseRun: manualPulseRun,
           readRegister: readRegister,
           writeRegister: writeRegister,
           onToggleRun: _toggleRun,
-          onToggleBuzzer: _toggleBuzzer,
+          onToggleManualPulse: _toggleManualPulse,
           onTogglePulse: _togglePulse,
         ),
       ),
@@ -743,6 +775,7 @@ class _MainPageState extends State<MainPage> {
                         'host': _host,
                         'mac': _mac,
                         'name': _deviceName,
+                        'unitId': _unitId,
                         'date': alarmAt,
                       },
                     );
@@ -936,8 +969,9 @@ class _HomeTab extends StatelessWidget {
     required this.filterTime,
     required this.filterCount,
     required this.activeSolValveNo,
+    required this.manualPulseRun,
     required this.onToggleRun,
-    required this.onToggleBuzzer,
+    required this.onToggleManualPulse,
     required this.onTogglePulse,
     required this.pulseDescription,
     required this.dpHighLimit,
@@ -979,8 +1013,9 @@ class _HomeTab extends StatelessWidget {
   final bool motorStatus, pulseDescription;
   final Color pulseColor;
   final int activeSolValveNo;
+  final int manualPulseRun;
   final Future<void> Function() onToggleRun;
-  final Future<void> Function() onToggleBuzzer;
+  final Future<void> Function() onToggleManualPulse;
   final void Function() onTogglePulse;
 
   final Future<int?> Function(int address) readRegister;
@@ -1408,11 +1443,11 @@ class _HomeTab extends StatelessWidget {
                               ),
                               SizedBox(width: w * 0.01),
                               Image.asset(
-                                pulseStatus == "펄스 정지"
+                                activeSolValveNo == 0
                                     ? 'assets/images/c_filter_off.png'
                                     : 'assets/images/c_filter_on.gif',
                                 width: 68,
-                                color: pulseStatus == "펄스 정지"
+                                color: activeSolValveNo == 0
                                     ? (motorStatus
                                     ? Colors.white
                                     : Colors.black54)
@@ -1525,27 +1560,43 @@ class _HomeTab extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                // 부저 정지 버튼
-                                Container(
-                                  width: w * 0.12,
-                                  height: portrait ? h * 0.05 : h * 0.12,
-                                  decoration: BoxDecoration(
-                                    color: motorStatus
-                                        ? Colors.white
-                                        : AppColor.duBlue,
-                                    borderRadius: BorderRadius.circular(25),
-                                  ),
-                                  child: IconButton(
-                                    onPressed: onToggleBuzzer,
-                                    icon: Icon(
-                                      Icons.notifications_off_outlined,
-                                      size: context.s(20),
-                                      color: motorStatus
-                                          ? Colors.black
-                                          : Colors.white,
+                                // 수동/전자동 펄싱 운전/정지 버튼 (40007)
+                                // 모터 OFF에서 누르면 전자동, ON에서 누르면 수동
+                                // 시각 상태는 실제 펄스 상태(pulseStatus) 기준으로 표시
+                                Builder(builder: (_) {
+                                  // 즉시 피드백을 위해 우리가 쓴 manualPulseRun 도 함께 본다.
+                                  // (디바이스가 pulseStatus 를 갱신하기 전 1~3초 공백 메우기)
+                                  final isPulsing = manualPulseRun == 1 ||
+                                      pulseStatus == "수동 펄스" ||
+                                      pulseStatus == "전자동 펄스";
+                                  return Container(
+                                    width: w * 0.12,
+                                    height: portrait ? h * 0.05 : h * 0.12,
+                                    decoration: BoxDecoration(
+                                      color: isPulsing
+                                          ? AppColor.duGreen
+                                          : (motorStatus
+                                              ? Colors.white
+                                              : AppColor.duBlue),
+                                      borderRadius: BorderRadius.circular(25),
                                     ),
-                                  ),
-                                ),
+                                    child: IconButton(
+                                      tooltip: isPulsing
+                                          ? (motorStatus ? '수동 펄스 진행 중' : '전자동 펄스 진행 중')
+                                          : (motorStatus ? '수동 펄스 시작' : '전자동 펄스 시작'),
+                                      onPressed: onToggleManualPulse,
+                                      icon: Icon(
+                                        isPulsing ? Icons.stop : Symbols.valve,
+                                        size: context.s(22),
+                                        color: isPulsing
+                                            ? Colors.white
+                                            : (motorStatus
+                                                ? Colors.black
+                                                : Colors.white),
+                                      ),
+                                    ),
+                                  );
+                                }),
                               ],
                             ),
                         ],

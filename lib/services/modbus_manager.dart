@@ -17,6 +17,35 @@ class ModbusManager {
   final Map<String, ModbusClientTcp> _clients = {}; // key: host#unitId
   final Map<String, _AlarmPoller> _alarmPollers = {};
 
+  // 같은 TCP 클라이언트(=같은 host#unitId)로 가는 send 호출을 직렬화하기 위한 FIFO 큐.
+  // 동시에 두 곳에서 readHoldingRange 등을 호출해도 응답이 섞이지 않도록 보호한다.
+  final Map<String, Future<void>> _sendTail = {};
+
+  Future<T> _withClientLock<T>(String key, Future<T> Function() body) {
+    final prev = _sendTail[key];
+    final next = Completer<void>();
+    _sendTail[key] = next.future;
+    return Future.sync(() async {
+      if (prev != null) {
+        try { await prev; } catch (_) {}
+      }
+      try {
+        return await body();
+      } finally {
+        next.complete();
+        if (_sendTail[key] == next.future) {
+          _sendTail.remove(key);
+        }
+      }
+    });
+  }
+
+  /// 외부에서 같은 host#unitId 의 client 작업을 직렬화하고 싶을 때 호출.
+  /// (예: Main.dart 의 직접 c.send() 호출처럼 ModbusManager 외부에서 일어나는 send)
+  Future<T> withClientLock<T>(String host, int unitId, Future<T> Function() body) {
+    return _withClientLock(_key(host, unitId), body);
+  }
+
   // 🔹 전체 기기 차압/전류 히스토리 폴링용 타이머
   Timer? _historyTimer;
   bool _historyPollingStarted = false;
@@ -45,6 +74,7 @@ class ModbusManager {
   }
 
   // 헬스 체크: Holding Register #1 한 번 읽어서 슬레이브 응답 확인
+  // (호출 시점엔 client가 _clients map에 등록되기 전이라 다른 곳과 contention 없음)
   Future<bool> _ping(ModbusClientTcp c, {int address = 0, Duration timeout = const Duration(seconds: 2)}) async {
     final reg = ModbusUint16Register(
       name: 'ping_in($address)',
@@ -122,8 +152,10 @@ class ModbusManager {
       name: '$host#$unitId',
     );
 
-    // 레지스터 읽기
-    await client!.send(inputs.getReadRequest());
+    // 레지스터 읽기 (다른 곳의 send와 직렬화)
+    await _withClientLock(_key(host, unitId), () async {
+      await client.send(inputs.getReadRequest());
+    });
 
     final dp = (inputs[0] as ModbusUint16Register).value?.toInt() ?? 0;
     final p1 =
@@ -273,8 +305,10 @@ class ModbusManager {
       type: ModbusElementType.holdingRegister, // FC03
       address: address,
     );
-    await c.send(reg.getReadRequest());
-    return reg.value?.toInt();
+    return _withClientLock(_key(host, unitId), () async {
+      await c.send(reg.getReadRequest());
+      return reg.value?.toInt();
+    });
   }
 
   Future<List<int>?> readHoldingRange(
@@ -284,7 +318,7 @@ class ModbusManager {
         required int startAddress,
         required int count,
         required String name,
-      }) 
+      })
   async {
     try {
       final c = await ensureConnected(
@@ -306,13 +340,13 @@ class ModbusManager {
         ),
       );
 
-      await c.send(group.getReadRequest());
-
-      // 값만 뽑아서 List<int>로 반환
-      return List<int>.generate(
-        count,
-            (i) => (group[i] as ModbusUint16Register).value?.toInt() ?? 0,
-      );
+      return await _withClientLock(_key(host, unitId), () async {
+        await c.send(group.getReadRequest());
+        return List<int>.generate(
+          count,
+              (i) => (group[i] as ModbusUint16Register).value?.toInt() ?? 0,
+        );
+      });
     } catch (e) {
       debugPrint('readHoldingRange error (host=$host, unitId=$unitId, start=$startAddress, count=$count): $e');
       return null;
@@ -334,8 +368,10 @@ class ModbusManager {
       type: ModbusElementType.holdingRegister, // FC06
       address: address,
     );
-    await c.send(reg.getWriteRequest(value));
-    return true;
+    return _withClientLock(_key(host, unitId), () async {
+      await c.send(reg.getWriteRequest(value));
+      return true;
+    });
   }
 }
 
@@ -372,7 +408,9 @@ class _AlarmPoller {
           type: ModbusElementType.inputRegister, // FC04
           address: 25,
         );
-        await c.send(reg.getReadRequest());
+        await ModbusManager.instance.withClientLock(host, unitId, () async {
+          await c.send(reg.getReadRequest());
+        });
 
         final raw = reg.value?.toInt() ?? 0;
         int cur = raw;
