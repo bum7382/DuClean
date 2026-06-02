@@ -433,13 +433,13 @@ class _AlarmPoller {
         }
 
         // 알람 해제: "현재 상태"가 알람이었고, 값이 0으로 떨어졌을 때 즉시 처리
+        // 다중 알람(코드가 5→1→0처럼 바뀌며 누적된 경우)도 일괄 해제
         if (cur == 0 && _lastCode > 0) {
           final nowMs = DateTime.now().millisecondsSinceEpoch;
-          debugPrint('[ALARM_CLEAR] $host#$unitId name=$name code=$_lastCode at=$nowMs');
-          await AlarmStore.appendClear(
+          debugPrint('[ALARM_CLEAR_ALL] $host#$unitId name=$name lastCode=$_lastCode at=$nowMs');
+          await AlarmStore.clearAllActive(
             host: host,
             unitId: unitId,
-            code: _lastCode,
             clearedAtMs: nowMs,
           );
           _lastCode = 0;

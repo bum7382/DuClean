@@ -110,4 +110,21 @@ class AlarmStore {
       }
     }
   }
+
+  // 해당 기기의 미해제 알람을 모두 해제 처리 (다중 알람 일괄 해제)
+  static Future<void> clearAllActive({
+    required String host,
+    required int unitId,
+    required int clearedAtMs,
+  }) async {
+    for (var i = 0; i < _memoryCache.length; i++) {
+      final e = _memoryCache[i];
+      if (e.host == host && e.unitId == unitId && e.clearedTsMs == null) {
+        _memoryCache[i] = AlarmRecord(
+          host: e.host, unitId: e.unitId, name: e.name,
+          code: e.code, tsMs: e.tsMs, clearedTsMs: clearedAtMs,
+        );
+      }
+    }
+  }
 }

@@ -92,46 +92,6 @@ class _ConnectListPageState extends State<ConnectListPage> {
     }
     if (mounted) {
       setState(() => _loading = false);
-
-      // 등록된 기기가 없으면 하드웨어 보유 여부 확인 → 없다고 하면 안내 팝업
-      if (_items.isEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _askHardwareExists(context);
-        });
-      }
-    }
-  }
-
-  // 등록된 기기가 없을 때: 하드웨어 보유 여부 먼저 확인
-  Future<void> _askHardwareExists(BuildContext context) async {
-    final hasHardware = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColor.bg,
-        title: Text('하드웨어 확인', style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600)),
-        content: Text(
-          '듀크린 하드웨어를 이미 보유하고 계신가요?',
-          style: TextStyle(fontSize: context.fs(14)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('아니요', style: TextStyle(color: AppColor.duBlue)),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColor.duBlue),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('예'),
-          ),
-        ],
-      ),
-    );
-
-    if (!mounted) return;
-    if (hasHardware == false) {
-      _showHardwareTutorial(context);
     }
   }
 
