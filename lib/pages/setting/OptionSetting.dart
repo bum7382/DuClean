@@ -41,6 +41,7 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
   bool? linkContactMisPrevent;  // 연동 접점 오동작 방지
   String? buzzerMode; // 부저모드
   String? pwEntryMenu; // 암호 진입 메뉴 설정 (1: 시스템설정, 2: 운전설정)
+  bool? remoteModePanelControl; // 원격모드 패널제어
 
   bool _loadFailed = false;          // 모든 시도 실패 여부
   static const int _maxRetry = 10;
@@ -63,6 +64,7 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
       linkContactMisPrevent = null;
       buzzerMode = null;
       pwEntryMenu = null;
+      remoteModePanelControl = null;
     });
     for (int attempt = 1; attempt <= _maxRetry; attempt++) {
       try {
@@ -85,7 +87,18 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
           count: 4,
           name: 'OperationSettings(2)',
         );
-        if (r1 != null && r1.length >= 45 && r2 != null && r2.length >= 4) {
+        // 3차: 75 (40076 원격모드 패널제어) 단독 읽기
+        final List<int>? r3 = await ModbusManager.instance.readHoldingRange(
+          context,
+          host: widget.host,
+          unitId: widget.unitId,
+          startAddress: 75,
+          count: 1,
+          name: 'OperationSettings(3)',
+        );
+        if (r1 != null && r1.length >= 45 &&
+            r2 != null && r2.length >= 4 &&
+            r3 != null && r3.isNotEmpty) {
           if (!mounted) return;
           setState(() {
             // r1: index = addr - 26
@@ -98,6 +111,8 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
             final int linkCMisPrevVal = r2[0]; // 71
             final int buzzerModeVal   = r2[1]; // 72
             final int pwMenuVal       = r2[3]; // 74
+            // r3: 75 단독 (40076)
+            final int remoteModePanelCtrlVal = r3[0]; // 75
 
             // 1. 운전 모드 설정 (라벨 매핑)
             final m = modeVal;
@@ -120,6 +135,7 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
             multiContact   = (multiCVal == 1);
             blackoutReward = (blackReVal == 1);
             linkContactMisPrevent = (linkCMisPrevVal == 1);
+            remoteModePanelControl = (remoteModePanelCtrlVal == 1);
 
             _loadFailed = false;
           });
@@ -211,7 +227,8 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
         blackoutReward == null ||
         linkContactMisPrevent == null ||
         buzzerMode == null ||
-        pwEntryMenu == null) {
+        pwEntryMenu == null ||
+        remoteModePanelControl == null) {
       return const Scaffold(
         backgroundColor: AppColor.bg,
         body: Center(child: CircularProgressIndicator(color: AppColor.duBlue,)),
@@ -241,6 +258,21 @@ class _OptionSettingPageState extends State<OptionSettingPage> {
                     await _setRunMode(selected);
                   }
                 },
+              ),
+              SettingsTile.switchTile(
+                activeSwitchColor: AppColor.duBlue,
+                onToggle: (v) => applyRegisterToggle(
+                  context: context,
+                  newValue: v,
+                  address: 75,
+                  writeRegister: widget.writeRegister,
+                  setLocalValue: (nv) => setState(() => remoteModePanelControl = nv),
+                  errorText: '원격모드 패널제어 설정 실패',
+                ),
+                initialValue: remoteModePanelControl!,
+                leading: const Icon(Symbols.settings_remote),
+                title: Text('원격모드 패널제어'),
+                description: Text('원격 모드에서 패널 제어 사용 여부'),
               ),
               SettingsTile.switchTile(
                 activeSwitchColor: AppColor.duBlue,
